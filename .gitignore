@@ -7,8 +7,10 @@ voices-v1.0.bin
 *.ckpt
 __pycache__/
 *.pyc
+*.md
 .venv/
 .trae/
+.claude/
 .codebuddy/
 .vscode/
 .workbuddy/
