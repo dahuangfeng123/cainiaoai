@@ -1708,6 +1708,8 @@
                         <span style="color:#fbbc04;font-size:14px;font-weight:bold;">⭐ <span id="exam-star-count">0</span></span>
                         <span style="color:#666;font-size:14px;">⏱ <span id="exam-timer">00:00</span></span>
                         <span style="color:#666;font-size:14px;">进度：<span id="exam-current">0</span> / <span id="exam-total">100</span></span>
+                        <span style="color:#ef5350;font-size:14px;">❌ <span id="exam-wrong-live">0</span></span>
+                        <span style="color:#999;font-size:14px;">⏭️ <span id="exam-skip-live">0</span></span>
                     </div>
                 </div>
                 <div class="theme-progress-bg" style="background:#fff9c4;border-radius:8px;height:8px;margin-bottom:20px;overflow:hidden;">
@@ -4445,6 +4447,8 @@
             if (examTimerInterval) clearInterval(examTimerInterval);
             examTimerInterval = setInterval(updateExamTimer, 1000);
             document.getElementById("exam-total").innerText = examWords.length;
+            document.getElementById("exam-wrong-live").innerText = 0;
+            document.getElementById("exam-skip-live").innerText = 0;
             document.getElementById("exam-setup").style.display = "none";
             document.getElementById("exam-progress").style.display = "block";
             document.getElementById("exam-result").style.display = "none";
@@ -4538,10 +4542,18 @@
                 fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-1⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
             }
             document.getElementById("exam-answer").disabled = true;
+            updateExamLiveStats();
             setTimeout(() => {
                 examIndex++;
                 renderExamQuestion();
             }, 1200);
+        }
+
+        function updateExamLiveStats() {
+            let wrongCount = examAnswers.filter(a => !a.correct && !a.skipped).length;
+            let skipCount = examAnswers.filter(a => a.skipped).length;
+            document.getElementById("exam-wrong-live").innerText = wrongCount;
+            document.getElementById("exam-skip-live").innerText = skipCount;
         }
 
         function skipExamAnswer() {
@@ -4560,6 +4572,7 @@
                 u.wrongPool[idx].date = Date.now();
             }
             setUser(u);
+            updateExamLiveStats();
             examIndex++;
             renderExamQuestion();
         }
