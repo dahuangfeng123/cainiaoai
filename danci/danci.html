@@ -8,6 +8,20 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
+        .exam-urgent {
+            animation: examPulse 0.5s ease-in-out infinite;
+        }
+        @keyframes examPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        .exam-urgent-container {
+            animation: examBgPulse 1s ease-in-out infinite;
+        }
+        @keyframes examBgPulse {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: rgba(244, 67, 54, 0.1); }
+        }
         * {
             margin: 0;
             padding: 0;
@@ -1707,9 +1721,8 @@
                     <div style="display:flex;align-items:center;gap:16px;">
                         <span style="color:#fbbc04;font-size:14px;font-weight:bold;">⭐ <span id="exam-star-count">0</span></span>
                         <span style="color:#666;font-size:14px;">⏱ <span id="exam-timer">00:00</span></span>
+                        <span style="color:#666;font-size:14px;">⏳ <span id="exam-question-timer" style="font-weight:bold;color:#4caf50;">30</span>秒</span>
                         <span style="color:#666;font-size:14px;">进度：<span id="exam-current">0</span> / <span id="exam-total">100</span></span>
-                        <span style="color:#ef5350;font-size:14px;">❌ <span id="exam-wrong-live">0</span></span>
-                        <span style="color:#999;font-size:14px;">⏭️ <span id="exam-skip-live">0</span></span>
                     </div>
                 </div>
                 <div class="theme-progress-bg" style="background:#fff9c4;border-radius:8px;height:8px;margin-bottom:20px;overflow:hidden;">
@@ -4267,6 +4280,8 @@
         let examSubmitted = false;
         let examStartTime = 0;
         let examTimerInterval = null;
+        let examQuestionTimer = null;
+        let examQuestionTimeLeft = 0;
 
         const MODE_LABELS = { 1: "看词写义", 2: "看义写词", 3: "听写单词" };
 
@@ -4447,8 +4462,6 @@
             if (examTimerInterval) clearInterval(examTimerInterval);
             examTimerInterval = setInterval(updateExamTimer, 1000);
             document.getElementById("exam-total").innerText = examWords.length;
-            document.getElementById("exam-wrong-live").innerText = 0;
-            document.getElementById("exam-skip-live").innerText = 0;
             document.getElementById("exam-setup").style.display = "none";
             document.getElementById("exam-progress").style.display = "block";
             document.getElementById("exam-result").style.display = "none";
@@ -4460,6 +4473,7 @@
 
         function renderExamQuestion() {
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
+            if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
             if (examIndex >= examWords.length) {
                 finishExam();
                 return;
@@ -4473,6 +4487,31 @@
             document.getElementById("exam-answer").value = "";
             document.getElementById("exam-feedback").style.display = "none";
             document.getElementById("exam-answer").disabled = false;
+            examQuestionTimeLeft = 60;
+            let timerEl = document.getElementById("exam-question-timer");
+            let questionArea = document.getElementById("exam-question-area");
+            timerEl.style.color = "#4caf50";
+            timerEl.style.fontSize = "14px";
+            timerEl.className = "";
+            questionArea.className = "";
+            timerEl.innerText = examQuestionTimeLeft;
+            examQuestionTimer = setInterval(() => {
+                examQuestionTimeLeft--;
+                timerEl.innerText = examQuestionTimeLeft;
+                if (examQuestionTimeLeft <= 10) {
+                    timerEl.style.color = "#f44336";
+                    timerEl.style.fontSize = "18px";
+                    timerEl.className = "exam-urgent";
+                    questionArea.className = "exam-urgent-container";
+                    if (examQuestionTimeLeft === 10) playSound('tick');
+                }
+                if (examQuestionTimeLeft <= 0) {
+                    if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+                    if (!examSubmitted) {
+                        handleExamTimeout();
+                    }
+                }
+            }, 1000);
             if (mode === 1) {
                 qEl.innerHTML = `单词：<span class="theme-purple" style="font-size:28px;color:#845ec2;">${w.word}</span><br><span style="font-size:14px;color:#999;">请写出中文释义</span>`;
                 speakBtn.style.display = "block";
@@ -4496,9 +4535,42 @@
             speak(examWords[examIndex].word.word);
         }
 
+        function handleExamTimeout() {
+            if (examSubmitted || examIndex >= examWords.length) return;
+            if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
+            let w = examWords[examIndex].word;
+            examAnswers.push({ idx: examWords[examIndex].idx, word: w, input: "", correct: false, simScore: 0, skipped: false, timeout: true });
+            let u = safeUser(getUser());
+            let idx = examWords[examIndex].idx;
+            if (!u.wrongPool[idx]) {
+                u.wrongPool[idx] = { status: 1, c: 1, pass: 0, date: Date.now() };
+            } else {
+                u.wrongPool[idx].status = 1;
+                u.wrongPool[idx].c = (u.wrongPool[idx].c || 0) + 1;
+                u.wrongPool[idx].date = Date.now();
+            }
+            setUser(u);
+            playSound('wrong');
+            resetCombo();
+            u.stars = Math.max(0, (u.stars || 0) - 1);
+            setUser(u);
+            renderStarDisplay();
+            let fb = document.getElementById("exam-feedback");
+            fb.style.display = "block";
+            fb.style.background = "#ffcdd2";
+            fb.style.color = "#c5221f";
+            fb.innerHTML = `⏰ 时间到！超时未作答，-1⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
+            document.getElementById("exam-answer").disabled = true;
+            setTimeout(() => {
+                examIndex++;
+                renderExamQuestion();
+            }, 3000);
+        }
+
         function submitExamAnswer() {
             if (examSubmitted || examIndex >= examWords.length) return;
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
+            if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
             let input = document.getElementById("exam-answer").value;
             if (!input.trim()) { toast('请输入答案', 'warning'); return; }
             let w = examWords[examIndex].word;
@@ -4542,24 +4614,17 @@
                 fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-1⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
             }
             document.getElementById("exam-answer").disabled = true;
-            updateExamLiveStats();
             setTimeout(() => {
                 examIndex++;
                 renderExamQuestion();
-            }, 1200);
-        }
-
-        function updateExamLiveStats() {
-            let wrongCount = examAnswers.filter(a => !a.correct && !a.skipped).length;
-            let skipCount = examAnswers.filter(a => a.skipped).length;
-            document.getElementById("exam-wrong-live").innerText = wrongCount;
-            document.getElementById("exam-skip-live").innerText = skipCount;
+            }, 3000);
         }
 
         function skipExamAnswer() {
             if (examSubmitted || examIndex >= examWords.length) return;
             resetCombo();
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
+            if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
             let w = examWords[examIndex].word;
             examAnswers.push({ idx: examWords[examIndex].idx, word: w, input: "", correct: false, simScore: 0, skipped: true });
             let u = safeUser(getUser());
@@ -4572,7 +4637,6 @@
                 u.wrongPool[idx].date = Date.now();
             }
             setUser(u);
-            updateExamLiveStats();
             examIndex++;
             renderExamQuestion();
         }
@@ -4581,6 +4645,9 @@
             examSubmitted = true;
             playSound('victory');
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
+            if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            let questionArea = document.getElementById("exam-question-area");
+            if (questionArea) questionArea.className = "";
             let duration = Date.now() - examStartTime;
             let correctCount = examAnswers.filter(a => a.correct).length;
             let wrongCount = examAnswers.filter(a => !a.correct && !a.skipped).length;
