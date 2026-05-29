@@ -4282,6 +4282,7 @@
         let examTimerInterval = null;
         let examQuestionTimer = null;
         let examQuestionTimeLeft = 0;
+        let examGushengAudio = null;
 
         const MODE_LABELS = { 1: "看词写义", 2: "看义写词", 3: "听写单词" };
 
@@ -4474,6 +4475,7 @@
         function renderExamQuestion() {
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             if (examIndex >= examWords.length) {
                 finishExam();
                 return;
@@ -4495,6 +4497,7 @@
             timerEl.className = "";
             questionArea.className = "";
             timerEl.innerText = examQuestionTimeLeft;
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             examQuestionTimer = setInterval(() => {
                 examQuestionTimeLeft--;
                 timerEl.innerText = examQuestionTimeLeft;
@@ -4503,10 +4506,16 @@
                     timerEl.style.fontSize = "18px";
                     timerEl.className = "exam-urgent";
                     questionArea.className = "exam-urgent-container";
-                    if (examQuestionTimeLeft === 10) playSound('tick');
+                    if (examQuestionTimeLeft === 10 && !examGushengAudio) {
+                        examGushengAudio = new Audio('audio/gusheng.mp3');
+                        examGushengAudio.loop = true;
+                        examGushengAudio.volume = 0.6;
+                        examGushengAudio.play().catch(() => {});
+                    }
                 }
                 if (examQuestionTimeLeft <= 0) {
                     if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+                    if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
                     if (!examSubmitted) {
                         handleExamTimeout();
                     }
@@ -4538,6 +4547,7 @@
         function handleExamTimeout() {
             if (examSubmitted || examIndex >= examWords.length) return;
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             let w = examWords[examIndex].word;
             examAnswers.push({ idx: examWords[examIndex].idx, word: w, input: "", correct: false, simScore: 0, skipped: false, timeout: true });
             let u = safeUser(getUser());
@@ -4571,6 +4581,7 @@
             if (examSubmitted || examIndex >= examWords.length) return;
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             let input = document.getElementById("exam-answer").value;
             if (!input.trim()) { toast('请输入答案', 'warning'); return; }
             let w = examWords[examIndex].word;
@@ -4625,6 +4636,7 @@
             resetCombo();
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             let w = examWords[examIndex].word;
             examAnswers.push({ idx: examWords[examIndex].idx, word: w, input: "", correct: false, simScore: 0, skipped: true });
             let u = safeUser(getUser());
@@ -4646,6 +4658,7 @@
             playSound('victory');
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             let questionArea = document.getElementById("exam-question-area");
             if (questionArea) questionArea.className = "";
             let duration = Date.now() - examStartTime;
