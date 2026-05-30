@@ -2620,6 +2620,10 @@
             let now = new Date();
             calYear = now.getFullYear();
             calMonth = now.getMonth();
+            if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
+            if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
+            if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+            if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             if (p === 'exam') {
                 document.getElementById("exam-setup").style.display = "block";
                 document.getElementById("exam-progress").style.display = "none";
