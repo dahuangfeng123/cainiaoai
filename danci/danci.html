@@ -1782,6 +1782,7 @@
                     <h2 style="margin-bottom:0;">🔄 错题重考</h2>
                     <div style="display:flex;align-items:center;gap:16px;">
                         <span style="color:#fbbc04;font-size:14px;font-weight:bold;">⭐ <span id="wrong-star-count">0</span></span>
+                        <span id="wrong-timer" style="color:#666;font-size:14px;font-weight:bold;">⏱️ 60</span>
                         <span style="color:#666;font-size:14px;">进度：<span id="wrong-current">0</span> / <span id="wrong-total">0</span></span>
                     </div>
                 </div>
@@ -4762,6 +4763,9 @@
         let wrongExamList = [];
         let wrongExamIndex = 0;
         let wrongExamAnswers = [];
+        let wrongExamTimer = null;
+        let wrongExamTimeLeft = 60;
+        let wrongGushengAudio = null;
 
         function renderWrongPool() {
             let u = safeUser(getUser());
@@ -4816,6 +4820,8 @@
         }
 
         function renderWrongQuestion() {
+            if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+            if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             if (wrongExamIndex >= wrongExamList.length) {
                 document.getElementById("wrong-bar").style.width = '100%';
                 setTimeout(() => finishWrongExam(), 300);
@@ -4837,6 +4843,53 @@
             speakBtn.style.display = mode === 3 ? '' : 'none';
             if (mode === 3) speak(wrongExamList[wrongExamIndex].word.word);
             document.getElementById("wrong-answer").focus();
+            wrongExamTimeLeft = 60;
+            let timerEl = document.getElementById("wrong-timer");
+            timerEl.innerText = '⏱️ ' + wrongExamTimeLeft;
+            timerEl.style.color = '#666';
+            timerEl.style.fontSize = '14px';
+            timerEl.className = '';
+            wrongExamTimer = setInterval(() => {
+                wrongExamTimeLeft--;
+                timerEl.innerText = '⏱️ ' + wrongExamTimeLeft;
+                if (wrongExamTimeLeft <= 10) {
+                    timerEl.style.color = "#f44336";
+                    timerEl.style.fontSize = "18px";
+                    timerEl.className = "exam-urgent";
+                    if (wrongExamTimeLeft === 10 && !wrongGushengAudio) {
+                        wrongGushengAudio = new Audio('audio/gusheng.mp3');
+                        wrongGushengAudio.loop = true;
+                        wrongGushengAudio.volume = 0.6;
+                        wrongGushengAudio.play().catch(() => {});
+                    }
+                }
+                if (wrongExamTimeLeft <= 0) {
+                    if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+                    if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
+                    handleWrongExamTimeout();
+                }
+            }, 1000);
+        }
+
+        function handleWrongExamTimeout() {
+            if (wrongExamIndex >= wrongExamList.length) return;
+            let item = wrongExamList[wrongExamIndex];
+            let u = safeUser(getUser());
+            let info = u.wrongPool[item.idx];
+            if (info) { info.pass = 0; info.status = 1; }
+            setUser(u);
+            wrongExamAnswers.push({ idx: item.idx, word: item.word, input: '', correct: false, simScore: 0 });
+            let fb = document.getElementById("wrong-feedback");
+            fb.style.display = 'block';
+            fb.style.background = '#ffcdd2';
+            fb.style.color = '#c5221f';
+            fb.innerHTML = `⏰ 超时！正确答案：<strong>${mode === 1 ? item.word.meaning : item.word.word}</strong>`;
+            document.getElementById("wrong-answer").disabled = true;
+            playSound('wrong');
+            setTimeout(() => {
+                wrongExamIndex++;
+                renderWrongQuestion();
+            }, 3500);
         }
 
         function speakWrongWord() {
@@ -4846,6 +4899,8 @@
         }
 
         function submitWrongAnswer() {
+            if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+            if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             if (wrongExamIndex >= wrongExamList.length) return;
             let input = document.getElementById("wrong-answer").value;
             if (!input.trim()) { toast('请输入答案', 'warning'); return; }
@@ -4894,6 +4949,8 @@
         }
 
         function skipWrongAnswer() {
+            if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+            if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             if (wrongExamIndex >= wrongExamList.length) return;
             resetCombo();
             let item = wrongExamList[wrongExamIndex];
@@ -4907,6 +4964,8 @@
         }
 
         function finishWrongExam() {
+            if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
+            if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             let u = safeUser(getUser());
             let remainingWrongCount = Object.values(u.wrongPool || {}).filter(w => w.status === 1).length;
             if (remainingWrongCount === 0) {
