@@ -1378,7 +1378,7 @@
             border-color: #34a853 !important;
             box-shadow: 0 0 0 2px rgba(52, 168, 83, 0.2) !important;
         }
-        .fill-input{display:inline-block;width:30px;border:none;border-bottom:2px solid #ddd;padding:2px 4px;font-size:16px;text-align:center;font-family:inherit;outline:none;transition:border-color 0.2s,background 0.2s;background:transparent;vertical-align:baseline;margin:0 2px;}
+        .fill-input{display:inline-block;border:none;border-bottom:2px solid #ddd;padding:4px 8px;font-size:16px;text-align:center;font-family:inherit;outline:none;transition:border-color 0.2s,background 0.2s;background:transparent;vertical-align:baseline;margin:0 4px;border-radius:4px;}
         .fill-input:focus{border-bottom-color:#1a73e8;}
         .fill-input.correct{border-bottom-color:#43a047;color:#43a047;background:#e8f5e9;}
         .fill-input.wrong{border-bottom-color:#ef5350;color:#ef5350;background:#ffebee;}
@@ -3528,7 +3528,9 @@
                 if (!w) return;
                 let dateStr = info.date ? new Date(info.date).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
                 let statusHtml = info.status === 1 ? '<span style="color:#ef5350;">❌ 未掌握</span>' : '<span style="color:#66bb6a;">✅ 已掌握</span>';
-                html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${w.word}</td><td style="padding:8px;border:1px solid #ddd;">${w.meaning}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;color:#ef5350;font-weight:bold;">${info.c || 1}</td><td style="padding:8px;border:1px solid #ddd;color:#999;">${dateStr}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${statusHtml}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;"><button class="btn btn-gray" style="padding:4px 8px;font-size:12px;" onclick="startCopyPractice(${idx})">📝 抄写</button></td></tr>`;
+                let copyCount = info.copyCount || 0;
+                let copyBtnText = copyCount > 0 ? `📝 抄写(${copyCount})` : '📝 抄写';
+                html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${w.word}</td><td style="padding:8px;border:1px solid #ddd;">${w.meaning}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;color:#ef5350;font-weight:bold;">${info.c || 1}</td><td style="padding:8px;border:1px solid #ddd;color:#999;">${dateStr}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${statusHtml}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;"><button class="btn btn-gray" style="padding:4px 8px;font-size:12px;" onclick="startCopyPractice(${idx})">${copyBtnText}</button></td></tr>`;
             });
             html += '</tbody></table></div>';
             el.innerHTML = html;
@@ -5013,10 +5015,11 @@
         function renderCopyModalContent() {
             let el = document.getElementById("copy-modal-content");
             let word = copyPracticeWord.word;
-            // 一行显示：单词 + 10个空格输入框
-            let html = `<span style="font-weight:bold;color:#1a73e8;">${word}</span>  `;
+            let inputWidth = Math.max(word.length * 18 + 20, 80);
+            // 一行显示：单词 + 10个输入框
+            let html = `<span style="font-weight:bold;color:#1a73e8;font-size:20px;">${word}</span>  `;
             for (let i = 0; i < 10; i++) {
-                html += `<input type="text" class="fill-input" id="copy-input-${i}" data-index="${i}" maxlength="1" placeholder="" oninput="copyInputNext(this)">`;
+                html += `<input type="text" class="fill-input" id="copy-input-${i}" data-index="${i}" placeholder="_" oninput="copyInputNext(this)" onpaste="return false" autocomplete="off" style="width:${inputWidth}px;">`;
                 if (i < 9) html += ' ';
             }
             el.innerHTML = html;
@@ -5026,8 +5029,15 @@
 
         function copyInputNext(input) {
             let idx = parseInt(input.dataset.index);
-            if (input.value && idx < 9) {
-                document.getElementById(`copy-input-${idx + 1}`)?.focus();
+            let word = copyPracticeWord.word.toLowerCase();
+            let userInput = input.value.toLowerCase().trim();
+            
+            // 当输入的内容等于完整单词时，自动跳到下一个输入框
+            if (userInput === word && idx < 9) {
+                input.classList.add('correct');
+                setTimeout(() => {
+                    document.getElementById(`copy-input-${idx + 1}`)?.focus();
+                }, 100);
             }
         }
 
@@ -5039,10 +5049,9 @@
                 let input = document.getElementById(`copy-input-${i}`);
                 if (!input) continue;
                 
-                let expectedChar = word[i % word.length].toLowerCase();
-                let userChar = input.value.toLowerCase();
+                let userInput = input.value.toLowerCase().trim();
                 
-                if (userChar === expectedChar) {
+                if (userInput === word) {
                     correctCount++;
                     input.classList.remove('wrong');
                     input.classList.add('correct');
@@ -5058,12 +5067,36 @@
             if (correctCount === 10) {
                 let u = safeUser(getUser());
                 u.stars = (u.stars || 0) + 1;
+                // 记录抄写次数和日期
+                if (!u.wrongPool[copyPracticeIdx]) {
+                    u.wrongPool[copyPracticeIdx] = {};
+                }
+                u.wrongPool[copyPracticeIdx].copyCount = (u.wrongPool[copyPracticeIdx].copyCount || 0) + 1;
+                u.wrongPool[copyPracticeIdx].lastCopyDate = Date.now();
                 setUser(u);
                 renderStarDisplay();
                 playSound('correct');
                 fb.style.background = '#c8e6c9';
                 fb.style.color = '#1e7e34';
                 fb.innerHTML = `🎉 太棒了！全部正确！+1⭐`;
+                
+                // 自动跳转到下一个错题
+                let wrongKeys = Object.keys(u.wrongPool).filter(k => u.wrongPool[k].status === 1);
+                let currentIdx = wrongKeys.indexOf(String(copyPracticeIdx));
+                if (currentIdx >= 0 && currentIdx < wrongKeys.length - 1) {
+                    setTimeout(() => {
+                        let nextIdx = parseInt(wrongKeys[currentIdx + 1]);
+                        let words = getWords();
+                        if (words[nextIdx]) {
+                            copyPracticeIdx = nextIdx;
+                            copyPracticeWord = words[nextIdx];
+                            document.getElementById("copy-modal-word").innerText = copyPracticeWord.word;
+                            document.getElementById("copy-modal-meaning").innerText = copyPracticeWord.meaning;
+                            fb.style.display = 'none';
+                            renderCopyModalContent();
+                        }
+                    }, 1500);
+                }
             } else {
                 playSound('wrong');
                 fb.style.background = '#ffcdd2';
