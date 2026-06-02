@@ -4584,11 +4584,11 @@
 
         function submitExamAnswer() {
             if (examSubmitted || examIndex >= examWords.length) return;
+            let input = document.getElementById("exam-answer").value;
+            if (!input.trim()) { toast('请输入答案', 'warning'); return; }
             if (examAutoSpeakTimer) { clearTimeout(examAutoSpeakTimer); examAutoSpeakTimer = null; }
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
             if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
-            let input = document.getElementById("exam-answer").value;
-            if (!input.trim()) { toast('请输入答案', 'warning'); return; }
             let w = examWords[examIndex].word;
             let result = checkExamAnswer(input, w);
             let scorePct = Math.round(result.score * 100);
