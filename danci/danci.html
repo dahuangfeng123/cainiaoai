@@ -3746,6 +3746,7 @@
                 if (u.done.includes(i)) return;
                 if (u.skilled && u.skilled.includes(i)) return;
                 if (!u.log[i] || !u.log[i].next) return;
+                if (!words[i]) return; // 检查单词是否存在
                 let nt = u.log[i].next;
                 if (nt <= ts + 86400000) {
                     tasks.push({ idx: i, word: words[i], nextTime: nt });
@@ -3768,6 +3769,7 @@
                 if (u.done.includes(i)) return;
                 if (u.skilled && u.skilled.includes(i)) return;
                 if (!u.log[i] || !u.log[i].next) return;
+                if (!words[i]) return; // 检查单词是否存在
                 let nt = u.log[i].next;
                 if (nt >= ts && nt < ts + 86400000) {
                     tasks.push({ idx: i, word: words[i], nextTime: nt });
