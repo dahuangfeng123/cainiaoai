@@ -2094,7 +2094,7 @@
                     <li>完成考试 +${tc.examCompleteReward}⭐</li>
                     <li>考试全对 +${tc.examPerfectReward}⭐</li>
                     <li>错题清零 +${tc.examClearReward}⭐</li>
-                    <li>考试答错1题 -3⭐</li>
+                    <li>考试答错1题 -5⭐</li>
                 </ul>
                 <h3 style="font-size:15px;color:#845ec2;margin-bottom:6px;">🔥 连击奖励规则</h3>
                 <ul style="padding-left:20px;margin-bottom:12px;">
@@ -4567,14 +4567,14 @@
             setUser(u);
             playSound('wrong');
             resetCombo();
-            u.stars = Math.max(0, (u.stars || 0) - 3);
+            u.stars = Math.max(0, (u.stars || 0) - 5);
             setUser(u);
             renderStarDisplay();
             let fb = document.getElementById("exam-feedback");
             fb.style.display = "block";
             fb.style.background = "#ffcdd2";
             fb.style.color = "#c5221f";
-            fb.innerHTML = `⏰ 时间到！超时未作答，-3⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
+            fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
                 examIndex++;
@@ -4622,12 +4622,12 @@
                 playSound('wrong');
                 resetCombo();
                 let u = safeUser(getUser());
-                u.stars = Math.max(0, (u.stars || 0) - 3);
+                u.stars = Math.max(0, (u.stars || 0) - 5);
                 setUser(u);
                 renderStarDisplay();
                 fb.style.background = "#ffcdd2";
                 fb.style.color = "#c5221f";
-                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-3⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
+                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-5⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
             }
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
