@@ -5023,6 +5023,9 @@
                 if (i < 9) html += ' ';
             }
             el.innerHTML = html;
+            // 重新启用提交按钮
+            let submitBtn = document.querySelector('#copy-modal .btn-blue');
+            if (submitBtn) submitBtn.disabled = false;
             // 自动聚焦第一个输入框
             setTimeout(() => document.getElementById('copy-input-0')?.focus(), 100);
         }
@@ -5042,6 +5045,10 @@
         }
 
         function submitCopyPractice() {
+            // 检查是否已经提交过（防止重复提交）
+            let submitBtn = document.querySelector('#copy-modal .btn-blue');
+            if (submitBtn && submitBtn.disabled) return;
+            
             let correctCount = 0;
             let word = copyPracticeWord.word.toLowerCase();
             
@@ -5065,20 +5072,44 @@
             fb.style.display = 'block';
             
             if (correctCount === 10) {
+                // 禁用提交按钮，防止重复提交
+                if (submitBtn) submitBtn.disabled = true;
+                
                 let u = safeUser(getUser());
-                u.stars = (u.stars || 0) + 1;
+                
+                // 判断今天是否已经抄写过
+                let today = todayKey();
+                let lastCopyDate = u.wrongPool[copyPracticeIdx]?.lastCopyDate;
+                let isTodayCopied = false;
+                if (lastCopyDate) {
+                    let lastDate = new Date(lastCopyDate);
+                    let lastDateStr = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`;
+                    isTodayCopied = (lastDateStr === today);
+                }
+                
                 // 记录抄写次数和日期
                 if (!u.wrongPool[copyPracticeIdx]) {
                     u.wrongPool[copyPracticeIdx] = {};
                 }
                 u.wrongPool[copyPracticeIdx].copyCount = (u.wrongPool[copyPracticeIdx].copyCount || 0) + 1;
                 u.wrongPool[copyPracticeIdx].lastCopyDate = Date.now();
-                setUser(u);
-                renderStarDisplay();
-                playSound('correct');
-                fb.style.background = '#c8e6c9';
-                fb.style.color = '#1e7e34';
-                fb.innerHTML = `🎉 太棒了！全部正确！+1⭐`;
+                
+                // 如果今天没抄写过，才加星星
+                if (!isTodayCopied) {
+                    u.stars = (u.stars || 0) + 1;
+                    setUser(u);
+                    renderStarDisplay();
+                    playSound('correct');
+                    fb.style.background = '#c8e6c9';
+                    fb.style.color = '#1e7e34';
+                    fb.innerHTML = `🎉 太棒了！全部正确！+1⭐`;
+                } else {
+                    setUser(u);
+                    playSound('correct');
+                    fb.style.background = '#c8e6c9';
+                    fb.style.color = '#1e7e34';
+                    fb.innerHTML = `✅ 抄写完成！今日已获得过星星`;
+                }
                 
                 // 自动跳转到下一个错题
                 let wrongKeys = Object.keys(u.wrongPool).filter(k => u.wrongPool[k].status === 1);
