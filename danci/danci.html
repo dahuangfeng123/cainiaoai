@@ -1800,6 +1800,23 @@
                 </div>
                 <div id="wrong-feedback" style="margin-top:16px;padding:12px;border-radius:8px;display:none;"></div>
             </div>
+            <!-- 抄写练习页面 -->
+            <div class="card" id="copy-practice-card" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="margin-bottom:0;">📝 错题抄写</h2>
+                    <span style="color:#666;font-size:14px;">进度：<span id="copy-progress">0</span>/10</span>
+                </div>
+                <div id="copy-word-display" style="text-align:center;margin-bottom:20px;padding:16px;background:#fff9e6;border-radius:8px;">
+                    <div style="font-size:28px;font-weight:bold;color:#1a73e8;margin-bottom:8px;" id="copy-word"></div>
+                    <div style="font-size:18px;color:#666;" id="copy-meaning"></div>
+                </div>
+                <div id="copy-questions"></div>
+                <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;">
+                    <button class="btn btn-blue" onclick="submitCopyPractice()">提交</button>
+                    <button class="btn btn-gray" onclick="cancelCopyPractice()">取消</button>
+                </div>
+                <div id="copy-feedback" style="margin-top:16px;padding:14px;border-radius:8px;display:none;"></div>
+            </div>
         </div>
 
         <!-- 关系查询 -->
@@ -3514,14 +3531,14 @@
                 return;
             }
             allKeys.sort((a, b) => (pool[b].date || 0) - (pool[a].date || 0));
-            let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#fff3e0;"><th style="padding:8px;border:1px solid #ddd;text-align:left;">单词</th><th style="padding:8px;border:1px solid #ddd;text-align:left;">释义</th><th style="padding:8px;border:1px solid #ddd;text-align:center;">错误次数</th><th style="padding:8px;border:1px solid #ddd;text-align:left;">最后出错</th><th style="padding:8px;border:1px solid #ddd;text-align:center;">状态</th></tr></thead><tbody>';
+            let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#fff3e0;"><th style="padding:8px;border:1px solid #ddd;text-align:left;">单词</th><th style="padding:8px;border:1px solid #ddd;text-align:left;">释义</th><th style="padding:8px;border:1px solid #ddd;text-align:center;">错误次数</th><th style="padding:8px;border:1px solid #ddd;text-align:left;">最后出错</th><th style="padding:8px;border:1px solid #ddd;text-align:center;">状态</th><th style="padding:8px;border:1px solid #ddd;text-align:center;">操作</th></tr></thead><tbody>';
             allKeys.forEach(idx => {
                 let info = pool[idx];
                 let w = words[parseInt(idx)];
                 if (!w) return;
                 let dateStr = info.date ? new Date(info.date).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
                 let statusHtml = info.status === 1 ? '<span style="color:#ef5350;">❌ 未掌握</span>' : '<span style="color:#66bb6a;">✅ 已掌握</span>';
-                html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${w.word}</td><td style="padding:8px;border:1px solid #ddd;">${w.meaning}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;color:#ef5350;font-weight:bold;">${info.c || 1}</td><td style="padding:8px;border:1px solid #ddd;color:#999;">${dateStr}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${statusHtml}</td></tr>`;
+                html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${w.word}</td><td style="padding:8px;border:1px solid #ddd;">${w.meaning}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;color:#ef5350;font-weight:bold;">${info.c || 1}</td><td style="padding:8px;border:1px solid #ddd;color:#999;">${dateStr}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${statusHtml}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;"><button class="btn btn-gray" style="padding:4px 8px;font-size:12px;" onclick="startCopyPractice(${idx})">📝 抄写</button></td></tr>`;
             });
             html += '</tbody></table></div>';
             el.innerHTML = html;
@@ -4985,6 +5002,99 @@
             toast(`错题重考完成！正确 ${correctCount}/${total}`, correctCount === total ? 'success' : 'info');
             renderWrongPool();
             renderStarDisplay();
+        }
+
+        // 抄写练习功能
+        let copyPracticeIdx = null;
+        let copyPracticeWord = null;
+
+        function startCopyPractice(idx) {
+            let words = getWords();
+            copyPracticeIdx = idx;
+            copyPracticeWord = words[idx];
+            if (!copyPracticeWord) return;
+            document.getElementById("wrong-pool-card").style.display = 'none';
+            document.getElementById("copy-practice-card").style.display = 'block';
+            document.getElementById("copy-word").innerText = copyPracticeWord.word;
+            document.getElementById("copy-meaning").innerText = copyPracticeWord.meaning;
+            document.getElementById("copy-feedback").style.display = 'none';
+            renderCopyQuestions();
+        }
+
+        function renderCopyQuestions() {
+            let el = document.getElementById("copy-questions");
+            let html = '';
+            for (let i = 0; i < 10; i++) {
+                let isWordToMeaning = (i % 2 === 1); // 偶数题（0、2、4...）看释义写单词，奇数题看单词写释义
+                let label = isWordToMeaning 
+                    ? `<span style="font-weight:bold;color:#1a73e8;">${copyPracticeWord.word}</span> → 请输入释义`
+                    : `<span style="font-weight:bold;color:#1a73e8;">${copyPracticeWord.meaning}</span> → 请输入单词`;
+                html += `
+                    <div style="margin-bottom:14px;padding:10px;background:#fafafa;border-radius:8px;">
+                        <div style="font-size:14px;margin-bottom:6px;color:#666;">第${i+1}题：${label}</div>
+                        <input type="text" id="copy-input-${i}" class="theme-input-styled" placeholder="请输入..." style="width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:10px;font-size:15px;" oninput="updateCopyProgress()">
+                    </div>
+                `;
+            }
+            el.innerHTML = html;
+            document.getElementById("copy-progress").innerText = '0';
+        }
+
+        function updateCopyProgress() {
+            let filled = 0;
+            for (let i = 0; i < 10; i++) {
+                let input = document.getElementById(`copy-input-${i}`);
+                if (input && input.value.trim()) {
+                    filled++;
+                }
+            }
+            document.getElementById("copy-progress").innerText = filled;
+        }
+
+        function submitCopyPractice() {
+            let correctCount = 0;
+            for (let i = 0; i < 10; i++) {
+                let input = document.getElementById(`copy-input-${i}`);
+                let inputEl = document.getElementById(`copy-input-${i}`);
+                let isWordToMeaning = (i % 2 === 1);
+                let answer = isWordToMeaning ? copyPracticeWord.meaning : copyPracticeWord.word;
+                let userInput = input.value.trim();
+                
+                if (userInput === answer) {
+                    correctCount++;
+                    inputEl.style.borderColor = '#66bb6a';
+                    inputEl.style.background = '#e8f5e9';
+                } else {
+                    inputEl.style.borderColor = '#ef5350';
+                    inputEl.style.background = '#ffebee';
+                }
+            }
+            
+            let fb = document.getElementById("copy-feedback");
+            fb.style.display = 'block';
+            
+            if (correctCount === 10) {
+                let u = safeUser(getUser());
+                u.stars = (u.stars || 0) + 1;
+                setUser(u);
+                renderStarDisplay();
+                playSound('correct');
+                fb.style.background = '#c8e6c9';
+                fb.style.color = '#1e7e34';
+                fb.innerHTML = `🎉 太棒了！全部正确！+1⭐`;
+            } else {
+                playSound('wrong');
+                fb.style.background = '#ffcdd2';
+                fb.style.color = '#c5221f';
+                fb.innerHTML = `❌ 正确 ${correctCount}/10，继续加油！全对可获得1⭐`;
+            }
+        }
+
+        function cancelCopyPractice() {
+            document.getElementById("copy-practice-card").style.display = 'none';
+            document.getElementById("wrong-pool-card").style.display = 'block';
+            copyPracticeIdx = null;
+            copyPracticeWord = null;
         }
 
         function renderExamScores() {
