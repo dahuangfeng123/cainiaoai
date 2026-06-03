@@ -1425,6 +1425,7 @@
     </div>
 
     <div class="mode-bar">
+        <button class="mbtn" onclick="setMode(0)">综合考试</button>
         <button class="mbtn on" onclick="setMode(1)">看词写义</button>
         <button class="mbtn" onclick="setMode(2)">看义写词</button>
         <button class="mbtn" onclick="setMode(3)">听写单词</button>
@@ -3422,7 +3423,7 @@
         function setMode(m) {
             mode = m;
             document.querySelectorAll(".mode-bar .mbtn").forEach((b, i) => {
-                b.classList.toggle("on", i === m - 1);
+                b.classList.toggle("on", i === m);
             });
             renderTodayList();
             renderExamPool();
@@ -3677,8 +3678,9 @@
                 let examLabel = u.exam ? EXAM_LABELS[u.exam] : '';
                 html = `<p style='margin-bottom:12px;color:#666;'>今日暂无待复习，随机推荐${examLabel}10个单词：</p>`;
                 picks.forEach(x => {
-                    let hideWord = (mode == 2);
-                    let hideMeaning = (mode == 1);
+                    let displayMode = mode === 0 ? 1 : mode; // 综合考试模式使用看词写义
+                    let hideWord = (displayMode == 2);
+                    let hideMeaning = (displayMode == 1);
                     html += `
         <div class="word-item">
             <div>
@@ -3704,8 +3706,9 @@
                     html += `<div style="margin-bottom:12px;"><button class="btn btn-blue" onclick="startReviewSession()">开始复习（${tasks.length}个单词，三轮模式）</button></div>`;
                 }
                 tasks.forEach(t => {
-                    let hideWord = (mode == 2 || mode == 3);
-                    let hideMeaning = (mode == 1);
+                    let displayMode = mode === 0 ? 1 : mode; // 综合考试模式使用看词写义
+                    let hideWord = (displayMode == 2 || displayMode == 3);
+                    let hideMeaning = (displayMode == 1);
                     if (isFuture) {
                         html += `
         <div class="word-item" style="opacity:0.7;">
@@ -4300,7 +4303,7 @@
         let examQuestionTimeLeft = 0;
         let examGushengAudio = null;
 
-        const MODE_LABELS = { 1: "看词写义", 2: "看义写词", 3: "听写单词" };
+        const MODE_LABELS = { 1: "看词写义", 2: "看义写词", 3: "听写单词", 0: "综合考试" };
 
         function similarity(a, b) {
             if (!a || !b) return 0;
@@ -4338,11 +4341,13 @@
             return s.replace(/^(n|v|vt|vi|adj|adv|pron|prep|conj|interj|art|num|abbr)\.\s*/i, '').trim();
         }
 
-        function checkExamAnswer(input, word) {
+        function checkExamAnswer(input, word, questionMode) {
             let ans = input.trim();
             if (!ans) return { correct: false, score: 0 };
+            
+            let currentMode = questionMode !== undefined ? questionMode : mode;
 
-            if (mode === 1) {
+            if (currentMode === 1) {
                 let meanings = word.meaning.split(/[;；,，、\n]/).map(s => s.replace(/[（(][^）)]*[）)]/g, '').trim()).map(s => stripPosTag(s)).filter(s => s.length > 0);
                 let ansParts = ans.split(/[;；,，、\n]/).map(s => s.trim()).filter(s => s);
                 if (ansParts.length === 1 && /^[\u4e00-\u9fa5]+$/.test(ans)) {
@@ -4390,7 +4395,7 @@
                     score: Math.min(Math.max(bestScore, 0), 1)
                 };
 
-            } else {
+            } else if (currentMode === 2 || currentMode === 3) {
                 let ansLower = ans.toLowerCase();
                 let wordLower = word.word.toLowerCase();
 
@@ -4470,8 +4475,36 @@
                 toast("考试不足10个单词，请多学习一些单词再考试", "warning");
                 return;
             }
-            let shuffled = pool.sort(() => Math.random() - 0.5);
-            examWords = shuffled.slice(0, Math.min(100, shuffled.length));
+            
+            if (mode === 0) {
+                // 综合考试模式：按 3:3:4 比例生成题目
+                let totalCount = Math.min(100, pool.length);
+                let mode1Count = Math.round(totalCount * 0.3); // 看词写义 30%
+                let mode2Count = Math.round(totalCount * 0.3); // 看义写词 30%
+                let mode3Count = totalCount - mode1Count - mode2Count; // 听写单词 40%
+                
+                let shuffled = pool.sort(() => Math.random() - 0.5);
+                examWords = [];
+                
+                // 分配题型
+                for (let i = 0; i < shuffled.length && examWords.length < totalCount; i++) {
+                    let item = shuffled[i];
+                    if (examWords.length < mode1Count) {
+                        examWords.push({ idx: item.idx, word: item.word, questionMode: 1 });
+                    } else if (examWords.length < mode1Count + mode2Count) {
+                        examWords.push({ idx: item.idx, word: item.word, questionMode: 2 });
+                    } else {
+                        examWords.push({ idx: item.idx, word: item.word, questionMode: 3 });
+                    }
+                }
+                
+                // 随机打乱题目顺序
+                examWords = examWords.sort(() => Math.random() - 0.5);
+            } else {
+                let shuffled = pool.sort(() => Math.random() - 0.5);
+                examWords = shuffled.slice(0, Math.min(100, shuffled.length));
+            }
+            
             examIndex = 0;
             examAnswers = [];
             examSubmitted = false;
@@ -4537,13 +4570,15 @@
                     }
                 }
             }, 1000);
-            if (mode === 1) {
+            let currentMode = examWords[examIndex].questionMode || mode;
+            
+            if (currentMode === 1) {
                 qEl.innerHTML = `单词：<span class="theme-purple" style="font-size:28px;color:#845ec2;">${w.word}</span><br><span style="font-size:14px;color:#999;">请写出中文释义</span>`;
                 speakBtn.style.display = "block";
-            } else if (mode === 2) {
+            } else if (currentMode === 2) {
                 qEl.innerHTML = `释义：<span style="font-size:18px;color:#333;">${w.meaning}</span><br><span style="font-size:14px;color:#999;">请写出英文单词</span>`;
                 speakBtn.style.display = "none";
-            } else if (mode === 3) {
+            } else if (currentMode === 3) {
                 qEl.innerHTML = `<span style="font-size:14px;color:#999;">请听写单词（自动朗读2次，也可手动点击朗读）</span>`;
                 speakBtn.style.display = "block";
                 speak(examWords[examIndex].word.word);
@@ -4585,7 +4620,8 @@
             fb.style.display = "block";
             fb.style.background = "#ffcdd2";
             fb.style.color = "#c5221f";
-            fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
+            let currentMode = examWords[examIndex].questionMode || mode;
+            fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
                 examIndex++;
@@ -4601,7 +4637,8 @@
             if (examQuestionTimer) { clearInterval(examQuestionTimer); examQuestionTimer = null; }
             if (examGushengAudio) { examGushengAudio.pause(); examGushengAudio = null; }
             let w = examWords[examIndex].word;
-            let result = checkExamAnswer(input, w);
+            let questionMode = examWords[examIndex].questionMode;
+            let result = checkExamAnswer(input, w, questionMode);
             let scorePct = Math.round(result.score * 100);
             examAnswers.push({ idx: examWords[examIndex].idx, word: w, input: input.trim(), correct: result.correct, simScore: scorePct, skipped: false });
             if (scorePct < 100) {
@@ -4638,7 +4675,7 @@
                 renderStarDisplay();
                 fb.style.background = "#ffcdd2";
                 fb.style.color = "#c5221f";
-                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-5⭐，正确答案：<strong>${mode === 1 ? w.meaning : w.word}</strong>`;
+                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-5⭐，正确答案：<strong>${questionMode === 1 ? w.meaning : w.word}</strong>`;
             }
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
