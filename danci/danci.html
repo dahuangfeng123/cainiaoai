@@ -4798,6 +4798,7 @@
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
                 examIndex++;
+                saveExamState();
                 renderExamQuestion();
             }, 1000);
         }
