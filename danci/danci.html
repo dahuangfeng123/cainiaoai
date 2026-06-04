@@ -4461,17 +4461,7 @@
                     return { correct: false, score: 0 };
                 }
                 
-                // 对于两字及以上的答案，如果是常见的副词后缀且去掉后缀后太短，则不匹配
-                // 注意："向前地"、"开着的"这样的词是有效的，因为后缀是词的一部分
-                const invalidEndings = ['的', '了', '着', '过', '地', '得'];
-                const lastChar = cleanAns.charAt(cleanAns.length - 1);
-                if (invalidEndings.includes(lastChar) && cleanAns.length <= 2) {
-                    // 只有当答案很短（2字及以下）且以这些后缀结尾时才拒绝
-                    // 比如"的"、"了"这样的单字，或"好的"、"快了"这样的两字词
-                    return { correct: false, score: 0 };
-                }
-                
-                // 对于多字答案，按分号分割词义
+                // 对于多字答案，先提取所有词义项
                 const meanings = [];
                 const meaningParts = word.meaning.split(/[;；]/);
                 
@@ -4489,6 +4479,32 @@
                     if (cleaned) {
                         meanings.push(cleaned);
                     }
+                }
+                
+                // 先检查完全匹配（在应用后缀规则之前）
+                // 同时检查逗号分隔的词义项
+                for (let m of meanings) {
+                    if (m === cleanAns) {
+                        return { correct: true, score: 1.0 };
+                    }
+                    // 检查逗号分隔的词义项
+                    const commaParts = m.split(/[，,、]/).map(p => p.trim()).filter(p => p);
+                    for (let part of commaParts) {
+                        if (part === cleanAns) {
+                            return { correct: true, score: 1.0 };
+                        }
+                    }
+                }
+                
+                // 对于两字及以上的答案，如果是常见的副词后缀且去掉后缀后太短，则不匹配
+                // 注意："向前地"、"开着的"这样的词是有效的，因为后缀是词的一部分
+                const invalidEndings = ['的', '了', '着', '过', '地', '得'];
+                const lastChar = cleanAns.charAt(cleanAns.length - 1);
+                if (invalidEndings.includes(lastChar) && cleanAns.length <= 2) {
+                    // 只有当答案很短（2字及以下）且以这些后缀结尾时才拒绝
+                    // 比如"的"、"了"这样的单字，或"好的"、"快了"这样的两字词
+                    // 但如果答案完全匹配某个词义项，则不拒绝（已在上面检查）
+                    return { correct: false, score: 0 };
                 }
                 
                 const ansParts = cleanAns.split(/[;；,，、\n]/).map(s => s.trim()).filter(s => s);
@@ -4972,7 +4988,7 @@
             } else {
                 playSound('wrong');
                 resetCombo();
-                if (isFirstExamToday) {
+                if (!isFirstExamToday) {
                     let u = safeUser(getUser());
                     u.stars = Math.max(0, (u.stars || 0) - 5);
                     setUser(u);
