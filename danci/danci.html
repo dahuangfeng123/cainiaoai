@@ -4745,7 +4745,8 @@
                 examSubmitted = savedState.submitted;
                 examStartTime = savedState.startTime;
                 mode = savedState.mode;
-                isFirstExamToday = savedState.isFirstExamToday || false;
+                // 不要从保存的状态中恢复 isFirstExamToday，应该根据当前日期重新计算
+                // isFirstExamToday = savedState.isFirstExamToday || false;
                 
                 if (examSubmitted || examIndex >= examWords.length) {
                     clearExamState();
