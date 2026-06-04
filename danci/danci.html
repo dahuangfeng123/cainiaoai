@@ -2661,7 +2661,8 @@
                     examSubmitted = savedState.submitted;
                     examStartTime = savedState.startTime;
                     mode = savedState.mode;
-                    isFirstExamToday = savedState.isFirstExamToday || false;
+                    // 根据当前日期计算今日考试次数
+                    todayExamCount = getTodayExamCount();
                     
                     toast('检测到未完成的考试，正在恢复...', 'info');
                     if (examTimerInterval) clearInterval(examTimerInterval);
@@ -4334,7 +4335,7 @@
         let examAnswers = [];
         let examSubmitted = false;
         let examStartTime = 0;
-        let isFirstExamToday = false; // 是否为当日初次考试
+        let todayExamCount = 0; // 今日考试次数
         let examTimerInterval = null;
         let examQuestionTimer = null;
         let examQuestionTimeLeft = 0;
@@ -4684,8 +4685,7 @@
                 answers: examAnswers.map(a => ({ idx: a.idx, input: a.input, correct: a.correct, simScore: a.simScore, skipped: a.skipped, timeout: a.timeout })),
                 submitted: examSubmitted,
                 startTime: examStartTime,
-                mode: mode,
-                isFirstExamToday: isFirstExamToday
+                mode: mode
             };
             localStorage.setItem('examState' + user, JSON.stringify(examState));
         }
@@ -4717,8 +4717,7 @@
         }
 
         function startExam() {
-            let todayExamCount = getTodayExamCount();
-            isFirstExamToday = todayExamCount === 0;
+            todayExamCount = getTodayExamCount();
             if (todayExamCount > 0) {
                 toast('今日已完成 ' + todayExamCount + ' 次考试，后续考试无奖励', 'info');
             }
@@ -4745,8 +4744,6 @@
                 examSubmitted = savedState.submitted;
                 examStartTime = savedState.startTime;
                 mode = savedState.mode;
-                // 不要从保存的状态中恢复 isFirstExamToday，应该根据当前日期重新计算
-                // isFirstExamToday = savedState.isFirstExamToday || false;
                 
                 if (examSubmitted || examIndex >= examWords.length) {
                     clearExamState();
@@ -4922,7 +4919,7 @@
             setUser(u);
             playSound('wrong');
             resetCombo();
-            if (isFirstExamToday) {
+            if (todayExamCount === 0) {
                 u.stars = Math.max(0, (u.stars || 0) - 5);
                 setUser(u);
                 renderStarDisplay();
@@ -4932,7 +4929,7 @@
             fb.style.background = "#ffcdd2";
             fb.style.color = "#c5221f";
             let currentMode = examWords[examIndex].questionMode || mode;
-            if (isFirstExamToday) {
+            if (todayExamCount === 0) {
                 fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
             } else {
                 fb.innerHTML = `⏰ 时间到！超时未作答，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
@@ -4974,7 +4971,7 @@
             if (result.correct) {
                 playSound('correct');
                 if (scorePct === 100) {
-                    if (isFirstExamToday) {
+                    if (todayExamCount === 0) {
                         addComboStar();
                         fb.innerHTML = `✅ 完美！匹配度 ${scorePct}% +1⭐`;
                     } else {
@@ -4989,7 +4986,7 @@
             } else {
                 playSound('wrong');
                 resetCombo();
-                if (!isFirstExamToday) {
+                if (todayExamCount > 0) {
                     let u = safeUser(getUser());
                     u.stars = Math.max(0, (u.stars || 0) - 5);
                     setUser(u);
@@ -5084,7 +5081,7 @@
             document.getElementById("wrong-pool-card").style.display = "block";
             saveExamScore(score, correctCount, examWords.length, mode, duration);
             // 根据是否为当日初次考试给予奖励
-            if (isFirstExamToday) {
+            if (todayExamCount === 0) {
                 addStars(myTaskConfig().examCompleteReward, '考试完成奖励！');
                 if (correctCount === examWords.length) {
                     addStars(myTaskConfig().examPerfectReward, '考试全对奖励！');
