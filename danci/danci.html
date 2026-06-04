@@ -2633,7 +2633,6 @@
             if (wrongExamTimer) { clearInterval(wrongExamTimer); wrongExamTimer = null; }
             if (wrongGushengAudio) { wrongGushengAudio.pause(); wrongGushengAudio = null; }
             if (p === 'exam') {
-                document.getElementById("wrong-pool-card").style.display = "block";
                 document.getElementById("wrong-exam-progress").style.display = "none";
                 
                 // 检查是否有保存的考试状态
@@ -2647,8 +2646,14 @@
                         questionMode: w.questionMode
                     })).filter(w => w.word);
                     
+                    // 恢复答案，需要重新关联 word 对象
+                    let wordMap = new Map(examWords.map(w => [w.idx, w.word]));
+                    examAnswers = savedState.answers.map(a => ({
+                        ...a,
+                        word: wordMap.get(a.idx) || null
+                    })).filter(a => a.word);
+                    
                     examIndex = savedState.index;
-                    examAnswers = savedState.answers;
                     examSubmitted = savedState.submitted;
                     examStartTime = savedState.startTime;
                     mode = savedState.mode;
@@ -2660,11 +2665,13 @@
                     document.getElementById("exam-setup").style.display = "none";
                     document.getElementById("exam-progress").style.display = "block";
                     document.getElementById("exam-result").style.display = "none";
+                    document.getElementById("wrong-pool-card").style.display = "none"; // 隐藏错题重考
                     renderExamQuestion();
                 } else {
                     document.getElementById("exam-setup").style.display = "block";
                     document.getElementById("exam-progress").style.display = "none";
                     document.getElementById("exam-result").style.display = "none";
+                    document.getElementById("wrong-pool-card").style.display = "block";
                 }
             }
             renderAll();
@@ -4537,8 +4544,14 @@
                     questionMode: w.questionMode
                 })).filter(w => w.word); // 过滤掉无效的单词
                 
+                // 恢复答案，需要重新关联 word 对象
+                let wordMap = new Map(examWords.map(w => [w.idx, w.word]));
+                examAnswers = savedState.answers.map(a => ({
+                    ...a,
+                    word: wordMap.get(a.idx) || null
+                })).filter(a => a.word);
+                
                 examIndex = savedState.index;
-                examAnswers = savedState.answers;
                 examSubmitted = savedState.submitted;
                 examStartTime = savedState.startTime;
                 mode = savedState.mode;
