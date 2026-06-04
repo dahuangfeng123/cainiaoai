@@ -4385,7 +4385,9 @@
             let currentMode = questionMode !== undefined ? questionMode : mode;
 
             if (currentMode === 1) {
-                let meanings = word.meaning.split(/[;；,，、\n]/).map(s => s.replace(/[（(][^）)]*[）)]/g, '').trim()).map(s => stripPosTag(s)).filter(s => s.length > 0);
+                // 去除词义中的省略号、空格等干扰字符
+                let cleanMeaning = word.meaning.replace(/[…...·.、，,；;]/g, '');
+                let meanings = cleanMeaning.split(/[;；,，、\n]/).map(s => s.replace(/[（(][^）)]*[）)]/g, '').trim()).map(s => stripPosTag(s)).filter(s => s.length > 0);
                 let ansParts = ans.split(/[;；,，、\n]/).map(s => s.trim()).filter(s => s);
                 if (ansParts.length === 1 && /^[\u4e00-\u9fa5]+$/.test(ans)) {
                     let chars = ans.split('');
@@ -4421,14 +4423,17 @@
                         let ansCoverage = common / ansChars.size;
                         let overlapScore = (charCoverage + ansCoverage) / 2;
                         if (overlapScore > bestScore) bestScore = overlapScore;
-                        if (charCoverage >= 0.8 || ansCoverage >= 0.8) {
+                        // 降低字符覆盖率阈值，允许更多部分匹配
+                        if (charCoverage >= 0.6 || ansCoverage >= 0.7) {
                             containMatch = true;
                         }
                     }
                 }
 
+                // 对于中文词义匹配，降低阈值到0.5，并提高部分匹配的识别能力
+                let threshold = isChinese ? 0.5 : 0.6;
                 return {
-                    correct: bestScore >= 0.6 || containMatch,
+                    correct: bestScore >= threshold || containMatch,
                     score: Math.min(Math.max(bestScore, 0), 1)
                 };
 
