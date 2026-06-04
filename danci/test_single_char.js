@@ -1,4 +1,40 @@
 // 测试单字答案的匹配问题
+const fs = require('fs');
+
+const words = JSON.parse(fs.readFileSync('./words.json', 'utf8'));
+
+const testCases = [
+    { meaning: '在…之前', answer: '在之前', shouldMatch: true },
+    { meaning: '在…之前', answer: '在...之前', shouldMatch: true },
+    { meaning: '在…之前', answer: '在什么之前', shouldMatch: true },
+    { meaning: '在…之前', answer: '之前', shouldMatch: true },
+    { meaning: '在…之前', answer: '在之前的', shouldMatch: false },
+    { meaning: '在…之前', answer: '之前的', shouldMatch: false },
+    
+    { meaning: 'conj. 和，与；而且；然后；就；但是', answer: '和', shouldMatch: true },
+    { meaning: 'conj. 和，与；而且；然后；就；但是', answer: '而且', shouldMatch: true },
+    { meaning: 'conj. 和，与；而且；然后；就；但是', answer: '和与', shouldMatch: true },
+    { meaning: 'conj. 和，与；而且；然后；就；但是', answer: '或者', shouldMatch: false },
+    { meaning: 'conj. 和，与；而且；然后；就；但是', answer: '和你', shouldMatch: false },
+    
+    { meaning: 'prep. 在，存在；是', answer: '存在', shouldMatch: true },
+    { meaning: 'prep. 在，存在；是', answer: '在', shouldMatch: true },
+    { meaning: 'prep. 在，存在；是', answer: '是', shouldMatch: true },
+    { meaning: 'prep. 在，存在；是', answer: '在于', shouldMatch: false },
+    
+    { meaning: 'pron. 他们；她们；它们', answer: '他们', shouldMatch: true },
+    { meaning: 'pron. 他们；她们；它们', answer: '她们', shouldMatch: true },
+    { meaning: 'pron. 他们；她们；它们', answer: '他们的', shouldMatch: false },
+    
+    { meaning: 'pron. 它', answer: '它', shouldMatch: true },
+    { meaning: 'pron. 它', answer: '他', shouldMatch: false },
+    
+    { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '之内', shouldMatch: true },
+    { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '从事', shouldMatch: true },
+    { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '按照', shouldMatch: true },
+    { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '表示方式', shouldMatch: true },
+    { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '方式', shouldMatch: true },
+];
 
 function stripPosTag(s) {
     return s.replace(/^(n|v|vt|vi|adj|adv|pron|prep|conj|interj|art|num|abbr)\.\s*/i, '').trim();
@@ -220,6 +256,48 @@ function checkAnswer(answer, meaning) {
     return { correct, score: Math.min(Math.max(bestScore, 0), 1) };
 }
 
+console.log('=== 词义匹配测试 ===\n');
+let passed = 0;
+let failed = 0;
+
+testCases.forEach((tc, index) => {
+    const result = checkAnswer(tc.answer, tc.meaning);
+    const expected = tc.shouldMatch;
+    const actual = result.correct;
+    const status = actual === expected ? '✓ PASS' : '✗ FAIL';
+    
+    if (actual === expected) {
+        passed++;
+    } else {
+        failed++;
+    }
+    
+    console.log(`${index + 1}. ${status}`);
+    console.log(`   词义: "${tc.meaning}"`);
+    console.log(`   答案: "${tc.answer}"`);
+    console.log(`   期望: ${expected ? '匹配' : '不匹配'}, 实际: ${actual ? '匹配' : '不匹配'}, 分数: ${(result.score * 100).toFixed(1)}%`);
+    console.log('');
+});
+
+console.log(`=== 测试结果: ${passed} 通过, ${failed} 失败 ===`);
+
+console.log('\n=== 实际单词测试 ===');
+const sampleWords = words.slice(0, 10);
+sampleWords.forEach(word => {
+    const testAnswers = [
+        word.meaning.substring(0, 2),
+        word.meaning.includes('；') ? word.meaning.split('；')[0] : word.meaning,
+        '测试答案'
+    ];
+    
+    console.log(`\n单词: ${word.word}`);
+    console.log(`词义: ${word.meaning}`);
+    testAnswers.forEach(ans => {
+        const result = checkAnswer(ans, word.meaning);
+        console.log(`  答案 "${ans}": ${result.correct ? '匹配' : '不匹配'} (${(result.score * 100).toFixed(1)}%)`);
+    });
+});
+
 console.log('=== 单字答案匹配测试 ===');
 console.log('单词: before');
 console.log('词义: prep. 在…之前；conj. 在…以前；adv. 以前，过去');
@@ -252,7 +330,7 @@ console.log('');
     console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
 });
 console.log('--------------------------------------');
-var ans = '给';
-var result = checkAnswer(ans, 'prep. 为，为了；给；因为；对于；适合于；至于');
+var ans = '某一';
+var result = checkAnswer(ans, 'adj. 一些；大约；某一');
 console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
 //node test_single_char.js
