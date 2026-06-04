@@ -2661,6 +2661,7 @@
                     examSubmitted = savedState.submitted;
                     examStartTime = savedState.startTime;
                     mode = savedState.mode;
+                    isFirstExamToday = savedState.isFirstExamToday || false;
                     
                     toast('检测到未完成的考试，正在恢复...', 'info');
                     if (examTimerInterval) clearInterval(examTimerInterval);
@@ -4337,6 +4338,7 @@
         let examAnswers = [];
         let examSubmitted = false;
         let examStartTime = 0;
+        let isFirstExamToday = false; // 是否为当日初次考试
         let examTimerInterval = null;
         let examQuestionTimer = null;
         let examQuestionTimeLeft = 0;
@@ -4501,10 +4503,11 @@
             let examState = {
                 words: examWords.map(w => ({ idx: w.idx, questionMode: w.questionMode })),
                 index: examIndex,
-                answers: examAnswers,
+                answers: examAnswers.map(a => ({ idx: a.idx, input: a.input, correct: a.correct, simScore: a.simScore, skipped: a.skipped, timeout: a.timeout })),
                 submitted: examSubmitted,
                 startTime: examStartTime,
-                mode: mode
+                mode: mode,
+                isFirstExamToday: isFirstExamToday
             };
             localStorage.setItem('examState', JSON.stringify(examState));
         }
@@ -4533,9 +4536,9 @@
                 return examDateStr === todayStr;
             });
             if (todayExams.length > 0) {
-                toast('今日考试任务已完成，明天再来吧！', 'warning');
-                return;
+                toast('今日考试任务已完成，后续考试联系不加分！', 'warning');
             }
+            isFirstExamToday = todayExams.length === 0;
             
             // 检查是否有保存的考试状态
             let savedState = loadExamState();
@@ -4559,6 +4562,7 @@
                 examSubmitted = savedState.submitted;
                 examStartTime = savedState.startTime;
                 mode = savedState.mode;
+                isFirstExamToday = savedState.isFirstExamToday || false;
                 
                 if (examSubmitted || examIndex >= examWords.length) {
                     clearExamState();
@@ -4584,6 +4588,16 @@
                 toast("考试不足10个单词，请多学习一些单词再考试", "warning");
                 return;
             }
+            
+            // 判断是否为当日初次考试
+            let todayStr = todayKey();
+            let todayExams = (u.examScores || []).filter(s => {
+                if (!s.date) return false;
+                let d = new Date(s.date);
+                let examDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                return examDateStr === todayStr;
+            });
+            isFirstExamToday = todayExams.length === 0;
             
             if (mode === 0) {
                 // 综合考试模式：按 3:3:4 比例生成题目
@@ -4734,15 +4748,21 @@
             setUser(u);
             playSound('wrong');
             resetCombo();
-            u.stars = Math.max(0, (u.stars || 0) - 5);
-            setUser(u);
-            renderStarDisplay();
+            if (isFirstExamToday) {
+                u.stars = Math.max(0, (u.stars || 0) - 5);
+                setUser(u);
+                renderStarDisplay();
+            }
             let fb = document.getElementById("exam-feedback");
             fb.style.display = "block";
             fb.style.background = "#ffcdd2";
             fb.style.color = "#c5221f";
             let currentMode = examWords[examIndex].questionMode || mode;
-            fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
+            if (isFirstExamToday) {
+                fb.innerHTML = `⏰ 时间到！超时未作答，-5⭐，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
+            } else {
+                fb.innerHTML = `⏰ 时间到！超时未作答，正确答案：<strong>${currentMode === 1 ? w.meaning : w.word}</strong>`;
+            }
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
                 examIndex++;
@@ -4780,8 +4800,12 @@
             if (result.correct) {
                 playSound('correct');
                 if (scorePct === 100) {
-                    addComboStar();
-                    fb.innerHTML = `✅ 完美！匹配度 ${scorePct}% +1⭐`;
+                    if (isFirstExamToday) {
+                        addComboStar();
+                        fb.innerHTML = `✅ 完美！匹配度 ${scorePct}% +1⭐`;
+                    } else {
+                        fb.innerHTML = `✅ 完美！匹配度 ${scorePct}%`;
+                    }
                 } else {
                     resetCombo();
                     fb.innerHTML = `✅ 继续努力，匹配度 ${scorePct}%`;
@@ -4791,13 +4815,19 @@
             } else {
                 playSound('wrong');
                 resetCombo();
-                let u = safeUser(getUser());
-                u.stars = Math.max(0, (u.stars || 0) - 5);
-                setUser(u);
-                renderStarDisplay();
-                fb.style.background = "#ffcdd2";
-                fb.style.color = "#c5221f";
-                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-5⭐，正确答案：<strong>${questionMode === 1 ? w.meaning : w.word}</strong>`;
+                if (isFirstExamToday) {
+                    let u = safeUser(getUser());
+                    u.stars = Math.max(0, (u.stars || 0) - 5);
+                    setUser(u);
+                    renderStarDisplay();
+                    fb.style.background = "#ffcdd2";
+                    fb.style.color = "#c5221f";
+                    fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，-5⭐，正确答案：<strong>${questionMode === 1 ? w.meaning : w.word}</strong>`;
+                } else {
+                    fb.style.background = "#ffcdd2";
+                    fb.style.color = "#c5221f";
+                    fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，正确答案：<strong>${questionMode === 1 ? w.meaning : w.word}</strong>`;
+                }
             }
             document.getElementById("exam-answer").disabled = true;
             setTimeout(() => {
