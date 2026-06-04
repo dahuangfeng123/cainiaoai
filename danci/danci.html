@@ -4385,57 +4385,155 @@
             let currentMode = questionMode !== undefined ? questionMode : mode;
 
             if (currentMode === 1) {
-                // 去除词义中的省略号、空格等干扰字符
-                let cleanMeaning = word.meaning.replace(/[…...·.、，,；;]/g, '');
-                let meanings = cleanMeaning.split(/[;；,，、\n]/).map(s => s.replace(/[（(][^）)]*[）)]/g, '').trim()).map(s => stripPosTag(s)).filter(s => s.length > 0);
-                let ansParts = ans.split(/[;；,，、\n]/).map(s => s.trim()).filter(s => s);
-                if (ansParts.length === 1 && /^[\u4e00-\u9fa5]+$/.test(ans)) {
-                    let chars = ans.split('');
-                    ansParts = [...ansParts, ...chars];
+                // 清理文本函数
+                function cleanText(s) {
+                    return s.replace(/[…...·.、，,；;]/g, '').replace(/\s+/g, '');
                 }
+                
+                // 检查答案是否合理扩展了词义
+                function isReasonableExtension(answer, meaning) {
+                    const validExtensions = ['什么', '哪个', '哪些', '多少', '几', '一些', '任何', '所有', '各个', '每', '某', '其他', '另外'];
+                    const invalidSuffixes = ['的', '了', '着', '过', '地', '得'];
+                    
+                    for (let suffix of invalidSuffixes) {
+                        if (answer.endsWith(suffix)) {
+                            const withoutSuffix = answer.slice(0, -suffix.length);
+                            if (withoutSuffix === meaning) {
+                                return false;
+                            }
+                        }
+                    }
+                    
+                    for (let ext of validExtensions) {
+                        if (answer.includes(ext) && meaning.length > 0) {
+                            let temp = answer;
+                            for (let e of validExtensions) {
+                                temp = temp.replace(e, '');
+                            }
+                            if (temp.includes(meaning) || meaning.includes(temp)) {
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    return false;
+                }
+                
+                const cleanAns = cleanText(ans);
+                const cleanMeaning = cleanText(word.meaning);
+                
+                const rawMeanings = cleanMeaning.split(/[;；,，、\n]/);
+                const meanings = [];
+                
+                for (let s of rawMeanings) {
+                    s = s.trim();
+                    if (!s) continue;
+                    s = stripPosTag(s);
+                    
+                    const bracketMatch = s.match(/（([^）]+)）|\(([^)]+)\)/);
+                    if (bracketMatch) {
+                        meanings.push(bracketMatch[1] || bracketMatch[2]);
+                    }
+                    
+                    const cleaned = s.replace(/[（(][^）)]*[）)]/g, '').trim();
+                    if (cleaned) {
+                        meanings.push(cleaned);
+                    }
+                }
+                
+                const ansParts = cleanAns.split(/[;；,，、\n]/).map(s => s.trim()).filter(s => s);
                 
                 let bestScore = 0;
                 let containMatch = false;
-
+                
                 for (let ap of ansParts) {
                     for (let m of meanings) {
-                        let edSim = similarity(ap, m);
-                        let csSim = charSetSim(ap, m);
-                        let s = Math.max(edSim, csSim);
-                        if (s > bestScore) bestScore = s;
-
-                        if (ap.length >= 1 && m.length >= 1) {
-                            if (ap === m || ap.includes(m) || m.includes(ap)) {
+                        if (!m) continue;
+                        
+                        if (ap === m) {
+                            return { correct: true, score: 1.0 };
+                        }
+                        
+                        const invalidSuffixes = ['的', '了', '着', '过', '地', '得'];
+                        const endsWithInvalidSuffix = invalidSuffixes.some(suffix => ap.endsWith(suffix));
+                        
+                        if (ap.length <= m.length) {
+                            if (m.includes(ap) && !endsWithInvalidSuffix) {
                                 containMatch = true;
+                                bestScore = Math.max(bestScore, ap.length / m.length);
+                                continue;
+                            }
+                        } else {
+                            if (isReasonableExtension(ap, m)) {
+                                containMatch = true;
+                                bestScore = Math.max(bestScore, m.length / ap.length);
+                                continue;
+                            }
+                            
+                            if (ap.includes(m)) {
+                                const extra = ap.length - m.length;
+                                if (extra <= 1) {
+                                    const lastChar = ap.charAt(ap.length - 1);
+                                    if (!invalidSuffixes.includes(lastChar)) {
+                                        containMatch = true;
+                                        bestScore = Math.max(bestScore, m.length / ap.length);
+                                    }
+                                } else if (isReasonableExtension(ap, m)) {
+                                    containMatch = true;
+                                    bestScore = Math.max(bestScore, m.length / ap.length);
+                                }
+                                continue;
+                            }
+                        }
+                        
+                        if (!endsWithInvalidSuffix) {
+                            let edSim = similarity(ap, m);
+                            bestScore = Math.max(bestScore, edSim);
+                            
+                            let csSim = charSetSim(ap, m);
+                            bestScore = Math.max(bestScore, csSim);
+                            
+                            if (ap.length >= 2) {
+                                for (let i = 0; i <= ap.length - 2; i++) {
+                                    let sub = ap.substring(i, i + 2);
+                                    if (m.includes(sub)) {
+                                        bestScore = Math.max(bestScore, 0.55);
+                                    }
+                                }
                             }
                         }
                     }
                 }
-
-                let isChinese = /^[\u4e00-\u9fa5]+$/.test(ans);
-                if (isChinese && !containMatch) {
-                    let ansChars = new Set(ans.split(''));
+                
+                if (!containMatch) {
+                    const ansChars = new Set(cleanAns);
                     for (let m of meanings) {
-                        let mChars = new Set(m.split(''));
+                        if (!m) continue;
+                        const mChars = new Set(m);
                         let common = 0;
                         for (let c of ansChars) { if (mChars.has(c)) common++; }
-                        let charCoverage = common / mChars.size;
-                        let ansCoverage = common / ansChars.size;
-                        let overlapScore = (charCoverage + ansCoverage) / 2;
-                        if (overlapScore > bestScore) bestScore = overlapScore;
-                        // 降低字符覆盖率阈值，允许更多部分匹配
-                        if (charCoverage >= 0.6 || ansCoverage >= 0.7) {
+                        const charCoverage = common / mChars.size;
+                        const ansCoverage = common / ansChars.size;
+                        
+                        if (charCoverage >= 0.7 && ansCoverage >= 0.8) {
                             containMatch = true;
+                            bestScore = Math.max(bestScore, (charCoverage + ansCoverage) / 2);
                         }
                     }
                 }
-
-                // 对于中文词义匹配，降低阈值到0.5，并提高部分匹配的识别能力
-                let threshold = isChinese ? 0.5 : 0.6;
-                return {
-                    correct: bestScore >= threshold || containMatch,
-                    score: Math.min(Math.max(bestScore, 0), 1)
-                };
+                
+                let threshold;
+                if (cleanAns.length <= 1) {
+                    threshold = 0.9;
+                } else if (cleanAns.length <= 2) {
+                    threshold = 0.7;
+                } else {
+                    threshold = 0.55;
+                }
+                
+                const correct = bestScore >= threshold || containMatch;
+                
+                return { correct, score: Math.min(Math.max(bestScore, 0), 1) };
 
             } else if (currentMode === 2 || currentMode === 3) {
                 let ansLower = ans.toLowerCase();
