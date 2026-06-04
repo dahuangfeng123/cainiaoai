@@ -324,6 +324,7 @@ function renderStudent(who) {
         <div class="btn-group">
             <button class="btn btn-primary" onclick="editStars('${who}')">✏️ 修改星星</button>
             <button class="btn btn-primary" onclick="editCombo('${who}')">✏️ 修改连击</button>
+            <button class="btn btn-primary" onclick="resetTodayExam('${who}')">🔄 重置今日考试</button>
             <button class="btn btn-danger" onclick="clearWrongPool('${who}')">🗑️ 清空错题</button>
             <button class="btn btn-danger" onclick="clearPrizes('${who}')">🗑️ 清空奖品</button>
             <button class="btn btn-danger" onclick="resetStudent('${who}')">⚠️ 重置</button>
@@ -500,14 +501,6 @@ function renderLottery() {
             <div style="display:flex;gap:8px;">
                 <button class="btn btn-warning" onclick="resetTodayLottery('A')">🔄 重置同学A</button>
                 <button class="btn btn-warning" onclick="resetTodayLottery('B')">🔄 重置同学B</button>
-            </div>
-        </div>
-        <div style="margin-top:16px;padding-top:12px;border-top:1px dashed #ddd;">
-            <h3 style="font-size:14px;margin-bottom:8px;">📝 重置今日考试</h3>
-            <div style="font-size:12px;color:#999;margin-bottom:8px;">重置后该同学今日的考试记录将被删除，可重新获得首次考试奖励</div>
-            <div style="display:flex;gap:8px;">
-                <button class="btn btn-warning" onclick="resetTodayExam('A')">📝 重置同学A</button>
-                <button class="btn btn-warning" onclick="resetTodayExam('B')">📝 重置同学B</button>
             </div>
         </div>
     </div>
