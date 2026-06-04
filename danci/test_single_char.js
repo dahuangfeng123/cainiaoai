@@ -34,10 +34,13 @@ const testCases = [
     { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '按照', shouldMatch: true },
     { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '表示方式', shouldMatch: true },
     { meaning: 'prep. 在…之内；从事于；按照（表示方式）', answer: '方式', shouldMatch: true },
+
+    // 用户报告的问题
+    { meaning: 'aux. 将，将要；愿意', answer: '将', shouldMatch: true },
 ];
 
 function stripPosTag(s) {
-    return s.replace(/^(n|v|vt|vi|adj|adv|pron|prep|conj|interj|art|num|abbr)\.\s*/i, '').trim();
+    return s.replace(/^(n|v|vt|vi|adj|adv|pron|prep|conj|interj|art|num|abbr|aux)\.\s*/i, '').trim();
 }
 
 function cleanText(s) {
