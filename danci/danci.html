@@ -2635,6 +2635,10 @@
             if (p === 'exam') {
                 document.getElementById("wrong-exam-progress").style.display = "none";
                 
+                // 设置为综合考试模式
+                mode = 0;
+                setMode(0);
+                
                 // 检查是否有保存的考试状态
                 let savedState = loadExamState();
                 if (savedState && !savedState.submitted && savedState.index < savedState.words.length) {
