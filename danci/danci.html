@@ -4420,12 +4420,62 @@
                 }
                 
                 const cleanAns = cleanText(ans);
-                const cleanMeaning = cleanText(word.meaning);
                 
-                const rawMeanings = cleanMeaning.split(/[;；,，、\n]/);
+                // 先按分号分割词义，然后再清理每个词义
+                const rawMeanings = word.meaning.split(/[;；]/);
+                
+                // 对于单字答案，必须完全匹配某个词义项或括号内的内容，或者是多词词义中的一个词
+                if (cleanAns.length === 1) {
+                    for (let s of rawMeanings) {
+                        s = s.trim();
+                        if (!s) continue;
+                        
+                        // 先提取括号内容（在清理之前）
+                        const bracketMatch = s.match(/（([^）]+)）|\(([^)]+)\)/);
+                        if (bracketMatch) {
+                            const bracketContent = bracketMatch[1] || bracketMatch[2];
+                            if (bracketContent === cleanAns) {
+                                return { correct: true, score: 1.0 };
+                            }
+                        }
+                        
+                        // 检查单字是否是多词词义中的一个词（如"朕，寡人"中的"朕"）
+                        // 在清理文本之前先提取，因为cleanText会去掉逗号
+                        let originalS = stripPosTag(s);
+                        let wordsPart = originalS.replace(/[（(][^）)]*[）)]/g, '').replace(/^\[[^\]]+\]/g, '').trim();
+                        const wordsInMeaning = wordsPart.split(/[，,、]/).map(w => w.trim()).filter(w => w);
+                        const cleanWords = wordsInMeaning.map(w => cleanText(w));
+                        if (cleanWords.includes(cleanAns)) {
+                            return { correct: true, score: 1.0 };
+                        }
+                        
+                        // 去除词性标签和清理文本
+                        let cleanedS = cleanText(originalS);
+                        
+                        // 检查单字是否完全等于某个词义项
+                        if (cleanedS === cleanAns) {
+                            return { correct: true, score: 1.0 };
+                        }
+                    }
+                    // 单字答案不匹配任何完整词义项
+                    return { correct: false, score: 0 };
+                }
+                
+                // 对于两字及以上的答案，如果是常见的副词后缀且去掉后缀后太短，则不匹配
+                // 注意："向前地"、"开着的"这样的词是有效的，因为后缀是词的一部分
+                const invalidEndings = ['的', '了', '着', '过', '地', '得'];
+                const lastChar = cleanAns.charAt(cleanAns.length - 1);
+                if (invalidEndings.includes(lastChar) && cleanAns.length <= 2) {
+                    // 只有当答案很短（2字及以下）且以这些后缀结尾时才拒绝
+                    // 比如"的"、"了"这样的单字，或"好的"、"快了"这样的两字词
+                    return { correct: false, score: 0 };
+                }
+                
+                // 对于多字答案，按分号分割词义
                 const meanings = [];
+                const meaningParts = word.meaning.split(/[;；]/);
                 
-                for (let s of rawMeanings) {
+                for (let s of meaningParts) {
                     s = s.trim();
                     if (!s) continue;
                     s = stripPosTag(s);
@@ -4458,10 +4508,26 @@
                         const endsWithInvalidSuffix = invalidSuffixes.some(suffix => ap.endsWith(suffix));
                         
                         if (ap.length <= m.length) {
-                            if (m.includes(ap) && !endsWithInvalidSuffix) {
+                            // 对于2字及以下的答案，只要是词义的子串就能匹配（但单字已在前面处理）
+                            // 对于3字及以上的答案，需要匹配至少一半的长度
+                            const minMatchRatio = ap.length <= 2 ? 0.5 : 0.6;
+                            if (m.includes(ap) && !endsWithInvalidSuffix && ap.length / m.length >= minMatchRatio) {
                                 containMatch = true;
                                 bestScore = Math.max(bestScore, ap.length / m.length);
                                 continue;
+                            }
+                            
+                            // 检查是否匹配逗号分隔的词义项中的某一项
+                            const commaParts = m.split(/[，,、]/).map(p => p.trim()).filter(p => p);
+                            for (let part of commaParts) {
+                                if (part === ap) {
+                                    return { correct: true, score: 1.0 };
+                                }
+                                if (part.includes(ap) && !endsWithInvalidSuffix) {
+                                    containMatch = true;
+                                    bestScore = Math.max(bestScore, ap.length / part.length);
+                                    break;
+                                }
                             }
                         } else {
                             if (isReasonableExtension(ap, m)) {
@@ -4472,12 +4538,9 @@
                             
                             if (ap.includes(m)) {
                                 const extra = ap.length - m.length;
-                                if (extra <= 1) {
-                                    const lastChar = ap.charAt(ap.length - 1);
-                                    if (!invalidSuffixes.includes(lastChar)) {
-                                        containMatch = true;
-                                        bestScore = Math.max(bestScore, m.length / ap.length);
-                                    }
+                                if (extra <= 1 && !invalidSuffixes.includes(ap.charAt(ap.length - 1))) {
+                                    containMatch = true;
+                                    bestScore = Math.max(bestScore, m.length / ap.length);
                                 } else if (isReasonableExtension(ap, m)) {
                                     containMatch = true;
                                     bestScore = Math.max(bestScore, m.length / ap.length);
@@ -4526,7 +4589,7 @@
                 if (cleanAns.length <= 1) {
                     threshold = 0.9;
                 } else if (cleanAns.length <= 2) {
-                    threshold = 0.7;
+                    threshold = 0.5;  // 两字答案降低阈值，允许部分匹配
                 } else {
                     threshold = 0.55;
                 }
