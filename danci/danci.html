@@ -4671,11 +4671,11 @@
                 mode: mode,
                 isFirstExamToday: isFirstExamToday
             };
-            localStorage.setItem('examState', JSON.stringify(examState));
+            localStorage.setItem('examState' + user, JSON.stringify(examState));
         }
 
         function loadExamState() {
-            let stateStr = localStorage.getItem('examState');
+            let stateStr = localStorage.getItem('examState' + user);
             if (!stateStr) return null;
             try {
                 return JSON.parse(stateStr);
@@ -4685,7 +4685,7 @@
         }
 
         function clearExamState() {
-            localStorage.removeItem('examState');
+            localStorage.removeItem('examState' + user);
         }
 
         // 获取今日考试次数
@@ -4799,7 +4799,7 @@
                 startTime: examStartTime,
                 mode: mode
             };
-            localStorage.setItem('examState', JSON.stringify(examState));
+            localStorage.setItem('examState' + user, JSON.stringify(examState));
             
             if (examTimerInterval) clearInterval(examTimerInterval);
             examTimerInterval = setInterval(updateExamTimer, 1000);
