@@ -2622,6 +2622,29 @@
         function setUser(u) { localStorage.setItem("wuser" + user, JSON.stringify(u)); }
 
         function show(p) {
+            // 检测是否正在考试中（未提交且有题目）
+            let isInExam = !examSubmitted && examWords.length > 0 && examIndex < examWords.length;
+            
+            // 如果正在考试且要跳转页面，显示确认对话框
+            if (isInExam) {
+                if (!confirm('⚠️ 警告：中断考试后今日将不再发放考试奖励！\n\n确定要离开考试吗？')) {
+                    return; // 用户取消，继续考试
+                }
+                // 用户确认离开，记录重考记录
+                let u = safeUser(getUser());
+                if (!u.examScores) u.examScores = [];
+                u.examScores.push({
+                    score: 0,
+                    correct: 0,
+                    total: examWords.length,
+                    modeLabel: MODE_LABELS[mode],
+                    duration: Date.now() - examStartTime,
+                    date: new Date().toLocaleString('zh-CN'),
+                    retake: true  // 标记为重考记录
+                });
+                setUser(u);
+            }
+            
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.getElementById("page-" + p).classList.add("active");
             selectedDate = null;
@@ -4754,13 +4777,20 @@
             document.getElementById("exam-result").style.display = "block";
             document.getElementById("wrong-pool-card").style.display = "block";
             let todayStr = todayKey();
-            let existingTodayScores = (safeUser(getUser()).examScores || []).filter(s => {
+            let u = safeUser(getUser());
+            let existingTodayScores = (u.examScores || []).filter(s => {
                 if (!s.date) return false;
                 let d = new Date(s.date);
                 return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') === todayStr;
             });
+            
+            // 检查是否有重考记录（今日的 retake: true 记录）
+            let hasRetakeToday = existingTodayScores.some(s => s.retake === true);
+            
             saveExamScore(score, correctCount, examWords.length, mode, duration);
-            if (existingTodayScores.length === 0) {
+            
+            // 如果有重考记录，不给予完成考试和全对奖励
+            if (existingTodayScores.length === 0 && !hasRetakeToday) {
                 addStars(myTaskConfig().examCompleteReward, '考试完成奖励！');
                 if (correctCount === examWords.length) {
                     addStars(myTaskConfig().examPerfectReward, '考试全对奖励！');
