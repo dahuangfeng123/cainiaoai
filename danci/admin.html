@@ -502,6 +502,14 @@ function renderLottery() {
                 <button class="btn btn-warning" onclick="resetTodayLottery('B')">🔄 重置同学B</button>
             </div>
         </div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px dashed #ddd;">
+            <h3 style="font-size:14px;margin-bottom:8px;">📝 重置今日考试</h3>
+            <div style="font-size:12px;color:#999;margin-bottom:8px;">重置后该同学今日的考试记录将被删除，可重新获得首次考试奖励</div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-warning" onclick="resetTodayExam('A')">📝 重置同学A</button>
+                <button class="btn btn-warning" onclick="resetTodayExam('B')">📝 重置同学B</button>
+            </div>
+        </div>
     </div>
     <div class="card">
         <h2>🎁 奖品列表（中奖率 & 兑奖消耗）</h2>
@@ -704,6 +712,34 @@ function resetTodayLottery(who) {
     localStorage.setItem(key, JSON.stringify(u));
     localStorage.setItem('lottery_logs', JSON.stringify(logs));
     showToast(`同学${who}今日抽奖资格已重置`, 'success');
+}
+
+function resetTodayExam(who) {
+    if (!confirm(`确定重置同学${who}的今日考试记录？`)) return;
+    let key = who === 'A' ? 'wuserA' : 'wuserB';
+    let u = null;
+    try { u = JSON.parse(localStorage.getItem(key)); } catch {}
+    if (!u) { showToast('该同学无数据', 'warning'); return; }
+    
+    // 获取今日日期字符串
+    let todayStr = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
+    
+    // 过滤掉今日的考试记录
+    if (u.examScores && Array.isArray(u.examScores)) {
+        let originalCount = u.examScores.length;
+        u.examScores = u.examScores.filter(s => {
+            if (!s.date) return true;
+            // 解析日期字符串，格式如 "2026/6/4 上午10:30:00" 或 "2026-06-04"
+            let d = new Date(s.date);
+            let examDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            return examDateStr !== todayStr;
+        });
+        let removedCount = originalCount - u.examScores.length;
+        localStorage.setItem(key, JSON.stringify(u));
+        showToast(`同学${who}今日考试记录已删除（${removedCount}条）`, 'success');
+    } else {
+        showToast('该同学无考试记录', 'warning');
+    }
 }
 
 let prizeDragFromIndex = null;
