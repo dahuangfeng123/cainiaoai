@@ -1176,7 +1176,7 @@ async function ttsFetch(text, abortSignal) {
 async function fetchTtsWithTimestamp(text, model, voice, speed, onProgress, abortSignal) {
     try {
         return await new Promise((resolve, reject) => {
-            fetch(API_BASE + '/tts/timestamp/stream', {
+            fetch(getTtsUrl() + '/tts/timestamp/stream', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text, model, voice, speed }),
                 signal: abortSignal
@@ -1211,7 +1211,7 @@ async function fetchTtsWithTimestamp(text, model, voice, speed, onProgress, abor
     } catch (e) {
         if (e.name === 'AbortError') return null;
         console.warn('SSE stream failed, falling back to regular endpoint:', e);
-        return fetch(API_BASE + '/tts/timestamp', {
+        return fetch(getTtsUrl() + '/tts/timestamp', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, model, voice, speed }),
             signal: abortSignal
