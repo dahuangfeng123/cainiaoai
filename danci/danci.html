@@ -2970,6 +2970,11 @@
                     u.learn.push(idx);
                 }
             } else {
+                // 检查是否在错题库中
+                if (u.wrongPool && u.wrongPool[idx] && u.wrongPool[idx].status === 1) {
+                    toast('该单词在错题库中，请学会后再标记为熟练', 'warning');
+                    return;
+                }
                 u.skilled.push(idx);
                 let learnPos = u.learn.indexOf(idx);
                 if (learnPos >= 0) u.learn.splice(learnPos, 1);
@@ -5085,7 +5090,14 @@
             saveExamScore(score, correctCount, examWords.length, mode, duration);
             // 根据是否为当日初次考试给予奖励
             if (todayExamCount === 0) {
-                addStars(myTaskConfig().examCompleteReward, '考试完成奖励！');
+                let reward = myTaskConfig().examCompleteReward;
+                // 成绩低于90分只奖励30%
+                if (score < 90) {
+                    reward = Math.floor(reward * 0.3);
+                    addStars(reward, `考试完成奖励（${score}%，30%奖励）`);
+                } else {
+                    addStars(reward, '考试完成奖励！');
+                }
                 if (correctCount === examWords.length) {
                     addStars(myTaskConfig().examPerfectReward, '考试全对奖励！');
                 }
@@ -5175,7 +5187,8 @@
             let u = safeUser(getUser());
             let words = getWords();
             let pool = u.wrongPool || {};
-            let keys = Object.keys(pool).filter(idx => pool[idx].status === 1);
+            let skilled = u.skilled || [];
+            let keys = Object.keys(pool).filter(idx => pool[idx].status === 1 && !skilled.includes(parseInt(idx)));
             if (keys.length === 0) { toast('暂无错题', 'warning'); return; }
             wrongExamList = keys.map(idx => ({ idx: parseInt(idx), word: words[idx] })).filter(x => x.word);
             wrongExamList.sort(() => Math.random() - 0.5);
