@@ -5183,6 +5183,8 @@
             document.getElementById("wrong-pool-list").innerHTML = html;
         }
 
+        function getWrongMode() { return mode === 0 ? 1 : mode; }
+
         function startWrongExam() {
             let u = safeUser(getUser());
             let words = getWords();
@@ -5216,16 +5218,17 @@
             let pct = ((wrongExamIndex + 1) / wrongExamList.length * 100).toFixed(1);
             document.getElementById("wrong-bar").style.width = pct + '%';
             let q = '';
-            if (mode === 1) q = `${w.word}`;
-            else if (mode === 2) q = `${w.meaning}`;
-            else if (mode === 3) q = '🔊 听写单词（点击朗读）';
+            let wrongMode = getWrongMode();
+            if (wrongMode === 1) q = `${w.word}`;
+            else if (wrongMode === 2) q = `${w.meaning}`;
+            else if (wrongMode === 3) q = '🔊 听写单词（点击朗读）';
             document.getElementById("wrong-question").innerText = q;
             document.getElementById("wrong-answer").value = '';
             document.getElementById("wrong-answer").disabled = false;
             document.getElementById("wrong-feedback").style.display = 'none';
             let speakBtn = document.getElementById("wrong-speak-btn");
-            speakBtn.style.display = mode === 3 ? '' : 'none';
-            if (mode === 3) speak(wrongExamList[wrongExamIndex].word.word);
+            speakBtn.style.display = wrongMode === 3 ? '' : 'none';
+            if (wrongMode === 3) speak(wrongExamList[wrongExamIndex].word.word);
             document.getElementById("wrong-answer").focus();
             wrongExamTimeLeft = 60;
             let timerEl = document.getElementById("wrong-timer");
@@ -5267,7 +5270,7 @@
             fb.style.display = 'block';
             fb.style.background = '#ffcdd2';
             fb.style.color = '#c5221f';
-            fb.innerHTML = `⏰ 超时！正确答案：<strong>${mode === 1 ? item.word.meaning : item.word.word}</strong>`;
+            fb.innerHTML = `⏰ 超时！正确答案：<strong>${getWrongMode() === 1 ? item.word.meaning : item.word.word}</strong>`;
             document.getElementById("wrong-answer").disabled = true;
             playSound('wrong');
             setTimeout(() => {
@@ -5322,7 +5325,7 @@
                 }
                 fb.style.background = '#ffcdd2';
                 fb.style.color = '#c5221f';
-                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，正确答案：<strong>${mode === 1 ? item.word.meaning : item.word.word}</strong>，重考进度已重置`;
+                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，正确答案：<strong>${getWrongMode() === 1 ? item.word.meaning : item.word.word}</strong>，重考进度已重置`;
                 setUser(u);
             }
             document.getElementById("wrong-answer").disabled = true;
