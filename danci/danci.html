@@ -5194,6 +5194,14 @@
             if (keys.length === 0) { toast('暂无错题', 'warning'); return; }
             wrongExamList = keys.map(idx => ({ idx: parseInt(idx), word: words[idx] })).filter(x => x.word);
             wrongExamList.sort(() => Math.random() - 0.5);
+            // 综合模式下为每道题分配随机题型
+            if (mode === 0) {
+                wrongExamList = wrongExamList.map(item => {
+                    let r = Math.random();
+                    item.questionMode = r < 0.3 ? 1 : r < 0.6 ? 2 : 3;
+                    return item;
+                });
+            }
             wrongExamIndex = 0;
             wrongExamAnswers = [];
             document.getElementById("wrong-total").innerText = wrongExamList.length;
@@ -5218,7 +5226,7 @@
             let pct = ((wrongExamIndex + 1) / wrongExamList.length * 100).toFixed(1);
             document.getElementById("wrong-bar").style.width = pct + '%';
             let q = '';
-            let wrongMode = getWrongMode();
+            let wrongMode = wrongExamList[wrongExamIndex].questionMode || getWrongMode();
             if (wrongMode === 1) q = `${w.word}`;
             else if (wrongMode === 2) q = `${w.meaning}`;
             else if (wrongMode === 3) q = '🔊 听写单词（点击朗读）';
@@ -5270,7 +5278,7 @@
             fb.style.display = 'block';
             fb.style.background = '#ffcdd2';
             fb.style.color = '#c5221f';
-            fb.innerHTML = `⏰ 超时！正确答案：<strong>${getWrongMode() === 1 ? item.word.meaning : item.word.word}</strong>`;
+            fb.innerHTML = `⏰ 超时！正确答案：<strong>${(item.questionMode || getWrongMode()) === 1 ? item.word.meaning : item.word.word}</strong>`;
             document.getElementById("wrong-answer").disabled = true;
             playSound('wrong');
             setTimeout(() => {
@@ -5292,7 +5300,7 @@
             let input = document.getElementById("wrong-answer").value;
             if (!input.trim()) { toast('请输入答案', 'warning'); return; }
             let item = wrongExamList[wrongExamIndex];
-            let result = checkExamAnswer(input, item.word);
+            let result = checkExamAnswer(input, item.word, item.questionMode);
             let scorePct = Math.round(result.score * 100);
             wrongExamAnswers.push({ idx: item.idx, word: item.word, input: input.trim(), correct: result.correct, simScore: scorePct });
             let fb = document.getElementById("wrong-feedback");
@@ -5325,7 +5333,7 @@
                 }
                 fb.style.background = '#ffcdd2';
                 fb.style.color = '#c5221f';
-                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，正确答案：<strong>${getWrongMode() === 1 ? item.word.meaning : item.word.word}</strong>，重考进度已重置`;
+                fb.innerHTML = `❌ 错误！匹配度 ${scorePct}%，正确答案：<strong>${(item.questionMode || getWrongMode()) === 1 ? item.word.meaning : item.word.word}</strong>，重考进度已重置`;
                 setUser(u);
             }
             document.getElementById("wrong-answer").disabled = true;
