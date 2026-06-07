@@ -982,7 +982,29 @@ function editCombo(who) {
     document.getElementById('edit-modal')._save = () => { u.combo = parseInt(document.getElementById('edit-combo-value').value) || 0; setStudent(who, u); renderStudent(who); };
 }
 function clearWrongPool(who) { if (!confirm(`确定清空同学${who}的错题库？`)) return; let u = getStudent(who); u.wrongPool = {}; setStudent(who, u); renderStudent(who); showToast('错题库已清空', 'success'); }
-function cleanupWrongPoolSkilled(who) { let u = getStudent(who); if (!u.wrongPool || !u.skilled) { showToast('无需清理', 'info'); return; } let cleaned = 0; u.skilled.forEach(idx => { if (u.wrongPool[idx]) { delete u.wrongPool[idx]; cleaned++; } }); if (cleaned > 0) { setStudent(who, u); renderStudent(who); showToast(`同学${who}：清理了 ${cleaned} 个已熟练但仍在错题库中的单词`, 'success'); } else { showToast(`同学${who}：错题库数据一致，无需清理`, 'info'); } }
+function cleanupWrongPoolSkilled(who) {
+    let u = getStudent(who);
+    if (!u.wrongPool || !u.skilled) { showToast('无需清理', 'info'); return; }
+    let cleaned = 0;
+    let wrongKeys = Object.keys(u.wrongPool);
+    console.log('skilled:', u.skilled, 'wrongPool keys:', wrongKeys);
+    u.skilled.forEach(idx => {
+        // skilled 中可能是数字，wrongPool 的 key 是字符串，统一用字符串比较
+        let idxStr = String(idx);
+        if (u.wrongPool[idxStr] || u.wrongPool[idx]) {
+            delete u.wrongPool[idxStr];
+            delete u.wrongPool[idx];
+            cleaned++;
+        }
+    });
+    if (cleaned > 0) {
+        setStudent(who, u);
+        renderStudent(who);
+        showToast(`同学${who}：清理了 ${cleaned} 个已熟练但仍在错题库中的单词`, 'success');
+    } else {
+        showToast(`同学${who}：错题库数据一致，无需清理`, 'info');
+    }
+}
 function clearPrizes(who) { if (!confirm(`确定清空同学${who}的所有奖品？`)) return; let u = getStudent(who); u.prizes = []; setStudent(who, u); renderStudent(who); showToast('奖品已清空', 'success'); }
 function resetStudent(who) { if (!confirm(`⚠️ 确定重置同学${who}的所有数据？`)) return; localStorage.removeItem(KEYS[who]); renderStudent(who); showToast(`同学${who}数据已重置`, 'success'); }
 function saveTaskConfig(who) {
