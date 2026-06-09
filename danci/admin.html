@@ -236,6 +236,22 @@ function getTaskConfig() {
 }
 function setTaskConfig(c) { localStorage.setItem('task_config', JSON.stringify(c)); }
 
+const DEFAULT_EXAM_CONFIG = {
+    examCount: 100,
+    questionTime: 60
+};
+function getExamConfig() {
+    try {
+        let c = JSON.parse(localStorage.getItem('exam_config'));
+        if (!c) return { A: { ...DEFAULT_EXAM_CONFIG }, B: { ...DEFAULT_EXAM_CONFIG } };
+        return {
+            A: { ...DEFAULT_EXAM_CONFIG, ...(c.A || {}) },
+            B: { ...DEFAULT_EXAM_CONFIG, ...(c.B || {}) }
+        };
+    } catch { return { A: { ...DEFAULT_EXAM_CONFIG }, B: { ...DEFAULT_EXAM_CONFIG } }; }
+}
+function setExamConfig(c) { localStorage.setItem('exam_config', JSON.stringify(c)); }
+
 function getStudent(who) {
     try { return JSON.parse(localStorage.getItem(KEYS[who])) || null; } catch { return null; }
 }
@@ -365,6 +381,27 @@ function renderStudent(who) {
             <div class="btn-group">
                 <button class="btn btn-primary" onclick="saveTaskConfig('${who}')">💾 保存配置</button>
                 <button class="btn btn-danger" onclick="resetTaskConfig('${who}')">🔄 恢复默认</button>
+            </div>`;
+        })()}
+    </div>
+    <div class="card">
+        <h2>📝 考试配置</h2>
+        ${(() => {
+            let ec = getExamConfig()[who] || { ...DEFAULT_EXAM_CONFIG };
+            return `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px;color:#888;">考试题目数量</label>
+                    <input type="number" id="ec-examCount-${who}" value="${ec.examCount}" min="1" max="200" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">每题答题时间（秒）</label>
+                    <input type="number" id="ec-questionTime-${who}" value="${ec.questionTime}" min="10" max="300" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveExamConfig('${who}')">💾 保存配置</button>
+                <button class="btn btn-danger" onclick="resetExamConfig('${who}')">🔄 恢复默认</button>
             </div>`;
         })()}
     </div>
@@ -1027,6 +1064,25 @@ function resetTaskConfig(who) {
     setTaskConfig(all);
     renderStudent(who);
     showToast(`同学${who}任务配置已恢复默认`, 'success');
+}
+function saveExamConfig(who) {
+    let all = getExamConfig();
+    all[who] = {
+        examCount: parseInt(document.getElementById('ec-examCount-' + who).value) || DEFAULT_EXAM_CONFIG.examCount,
+        questionTime: parseInt(document.getElementById('ec-questionTime-' + who).value) || DEFAULT_EXAM_CONFIG.questionTime
+    };
+    if (all[who].examCount < 1) all[who].examCount = 1;
+    if (all[who].questionTime < 10) all[who].questionTime = 10;
+    setExamConfig(all);
+    showToast(`同学${who}考试配置已保存`, 'success');
+}
+function resetExamConfig(who) {
+    if (!confirm(`确定恢复同学${who}的考试配置为默认值？`)) return;
+    let all = getExamConfig();
+    all[who] = { ...DEFAULT_EXAM_CONFIG };
+    setExamConfig(all);
+    renderStudent(who);
+    showToast(`同学${who}考试配置已恢复默认`, 'success');
 }
 function saveScrollPositions() {
     let positions = {};

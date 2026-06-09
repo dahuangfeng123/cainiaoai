@@ -2499,6 +2499,10 @@
             examPerfectReward: 100,
             examClearReward: 50
         };
+        const DEFAULT_EXAM_CONFIG = {
+            examCount: 100,
+            questionTime: 60
+        };
         function getTaskConfig() {
             try {
                 let c = JSON.parse(localStorage.getItem('task_config'));
@@ -2509,9 +2513,23 @@
                 };
             } catch { return { A: { ...DEFAULT_TASK_CONFIG }, B: { ...DEFAULT_TASK_CONFIG } }; }
         }
+        function getExamConfig() {
+            try {
+                let c = JSON.parse(localStorage.getItem('exam_config'));
+                if (!c) return { A: { ...DEFAULT_EXAM_CONFIG }, B: { ...DEFAULT_EXAM_CONFIG } };
+                return {
+                    A: { ...DEFAULT_EXAM_CONFIG, ...(c.A || {}) },
+                    B: { ...DEFAULT_EXAM_CONFIG, ...(c.B || {}) }
+                };
+            } catch { return { A: { ...DEFAULT_EXAM_CONFIG }, B: { ...DEFAULT_EXAM_CONFIG } }; }
+        }
         function myTaskConfig() {
             let all = getTaskConfig();
             return all[user] || { ...DEFAULT_TASK_CONFIG };
+        }
+        function myExamConfig() {
+            let all = getExamConfig();
+            return all[user] || { ...DEFAULT_EXAM_CONFIG };
         }
         let user = "A";
         let mode = 1;
@@ -4780,7 +4798,8 @@
             
             if (mode === 0) {
                 // 综合考试模式：按 3:3:4 比例生成题目
-                let totalCount = Math.min(100, pool.length);
+                let ec = myExamConfig();
+                let totalCount = Math.min(ec.examCount, pool.length);
                 let mode1Count = Math.round(totalCount * 0.3); // 看词写义 30%
                 let mode2Count = Math.round(totalCount * 0.3); // 看义写词 30%
                 let mode3Count = totalCount - mode1Count - mode2Count; // 听写单词 40%
@@ -4803,8 +4822,9 @@
                 // 随机打乱题目顺序
                 examWords = examWords.sort(() => Math.random() - 0.5);
             } else {
+                let ec = myExamConfig();
                 let shuffled = pool.sort(() => Math.random() - 0.5);
-                examWords = shuffled.slice(0, Math.min(100, shuffled.length));
+                examWords = shuffled.slice(0, Math.min(ec.examCount, shuffled.length));
             }
             
             examIndex = 0;
@@ -4852,7 +4872,7 @@
             document.getElementById("exam-answer").value = "";
             document.getElementById("exam-feedback").style.display = "none";
             document.getElementById("exam-answer").disabled = false;
-            examQuestionTimeLeft = 60;
+            examQuestionTimeLeft = myExamConfig().questionTime;
             let timerEl = document.getElementById("exam-question-timer");
             let questionArea = document.getElementById("exam-question-area");
             timerEl.style.color = "#4caf50";
@@ -5238,7 +5258,7 @@
             speakBtn.style.display = wrongMode === 3 ? '' : 'none';
             if (wrongMode === 3) speak(wrongExamList[wrongExamIndex].word.word);
             document.getElementById("wrong-answer").focus();
-            wrongExamTimeLeft = 60;
+            wrongExamTimeLeft = myExamConfig().questionTime;
             let timerEl = document.getElementById("wrong-timer");
             timerEl.innerText = '⏱️ ' + wrongExamTimeLeft;
             timerEl.style.color = '#666';
