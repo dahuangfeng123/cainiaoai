@@ -2529,6 +2529,10 @@
         }
         function myExamConfig() {
             let all = getExamConfig();
+            let raw = localStorage.getItem('exam_config');
+            console.log('[考试配置] 原始localStorage:', raw);
+            console.log('[考试配置] 解析后:', JSON.stringify(all));
+            console.log('[考试配置] 当前用户:', user, '配置:', JSON.stringify(all[user]));
             return all[user] || { ...DEFAULT_EXAM_CONFIG };
         }
         let user = "A";
@@ -5211,8 +5215,7 @@
             let u = safeUser(getUser());
             let words = getWords();
             let pool = u.wrongPool || {};
-            let skilled = u.skilled || [];
-            let keys = Object.keys(pool).filter(idx => pool[idx].status === 1 && !skilled.includes(parseInt(idx)));
+            let keys = Object.keys(pool).filter(idx => pool[idx].status === 1);
             if (keys.length === 0) { toast('暂无错题', 'warning'); return; }
             wrongExamList = keys.map(idx => ({ idx: parseInt(idx), word: words[idx] })).filter(x => x.word);
             wrongExamList.sort(() => Math.random() - 0.5);

@@ -1074,6 +1074,8 @@ function saveExamConfig(who) {
     if (all[who].examCount < 1) all[who].examCount = 1;
     if (all[who].questionTime < 10) all[who].questionTime = 10;
     setExamConfig(all);
+    console.log('[Admin] 考试配置已保存:', JSON.stringify(all));
+    console.log('[Admin] 验证localStorage:', localStorage.getItem('exam_config'));
     showToast(`同学${who}考试配置已保存`, 'success');
 }
 function resetExamConfig(who) {
