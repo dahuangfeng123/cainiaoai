@@ -2530,9 +2530,6 @@
         function myExamConfig() {
             let all = getExamConfig();
             let raw = localStorage.getItem('exam_config');
-            console.log('[考试配置] 原始localStorage:', raw);
-            console.log('[考试配置] 解析后:', JSON.stringify(all));
-            console.log('[考试配置] 当前用户:', user, '配置:', JSON.stringify(all[user]));
             return all[user] || { ...DEFAULT_EXAM_CONFIG };
         }
         let user = "A";
@@ -4757,6 +4754,7 @@
             // 检查是否有保存的考试状态
             let savedState = loadExamState();
             if (savedState) {
+                console.log('[考试] 检测到保存的考试状态, 跳过配置, 恢复已有考试');
                 // 恢复考试状态
                 let words = getWords();
                 examWords = savedState.words.map(w => ({
@@ -4804,8 +4802,8 @@
             
             if (mode === 0) {
                 // 综合考试模式：按 3:3:4 比例生成题目
-                let ec = myExamConfig();
                 let totalCount = Math.min(ec.examCount, pool.length);
+                console.log('[考试] 综合模式, 配置题数:', ec.examCount, '可用池:', pool.length, '实际题数:', totalCount);
                 let mode1Count = Math.round(totalCount * 0.3); // 看词写义 30%
                 let mode2Count = Math.round(totalCount * 0.3); // 看义写词 30%
                 let mode3Count = totalCount - mode1Count - mode2Count; // 听写单词 40%
@@ -4828,9 +4826,9 @@
                 // 随机打乱题目顺序
                 examWords = examWords.sort(() => Math.random() - 0.5);
             } else {
-                let ec = myExamConfig();
                 let shuffled = pool.sort(() => Math.random() - 0.5);
                 examWords = shuffled.slice(0, Math.min(ec.examCount, shuffled.length));
+                console.log('[考试] 单模式, mode:', mode, '配置题数:', ec.examCount, '可用池:', pool.length, '实际题数:', examWords.length);
             }
             
             examIndex = 0;
