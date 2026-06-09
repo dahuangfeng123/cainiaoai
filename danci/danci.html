@@ -4743,6 +4743,8 @@
         }
 
         function startExam() {
+            let ec = myExamConfig();
+            console.log('[考试配置] 学生:', user, '题目数量:', ec.examCount, '答题时间:', ec.questionTime + 's');
             todayExamCount = getTodayExamCount();
             if (todayExamCount > 0) {
                 toast('今日已完成 ' + todayExamCount + ' 次考试，后续考试无奖励', 'info');
