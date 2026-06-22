@@ -2097,6 +2097,7 @@
                 return `<li>${item.emoji} ${item.name} — ${item.cost}⭐${suffix}</li>`;
             }).join('');
             let tc = myTaskConfig();
+            let ccfg = myCheckinConfig();
             el.innerHTML = `
                 <h3 style="font-size:15px;color:#ff6f91;margin-bottom:6px;">⭐ 星星获取规则</h3>
                 <ul style="padding-left:20px;margin-bottom:12px;">
@@ -2119,10 +2120,10 @@
                 <ul style="padding-left:20px;margin-bottom:12px;">
                     <li>当天完成所有任务（学习+复习+考试）即为打卡成功</li>
                     <li>连续打卡天数越多，每日奖励越高：</li>
-                    <li style="list-style:none;padding-left:16px;">第1天 +30⭐ → 第2天 +60⭐ → 第3-7天 +120⭐/天 → 第8-14天 +180⭐/天 → 第15天起 +250⭐/天</li>
-                    <li>中断或未完成当天任务，扣600⭐，连续天数归零</li>
-                    <li>连续多日未完成，每天各扣600⭐</li>
-                    <li>从打卡开始日期起，未完成当天任务即扣分</li>
+                    <li style="list-style:none;padding-left:16px;">第1天 +${ccfg.day1Reward}⭐ → 第2天 +${ccfg.day2Reward}⭐ → 第3-7天 +${ccfg.day3to7Reward}⭐/天 → 第8-14天 +${ccfg.day8to14Reward}⭐/天 → 第15天起 +${ccfg.day15PlusReward}⭐/天</li>
+                    <li>中断或未完成当天任务，扣${ccfg.penalty}⭐，连续天数归零</li>
+                    <li>连续多日未完成，每天各扣${ccfg.penalty}⭐</li>
+                    <li>从打卡开始日期起${ccfg.startDate ? `（${ccfg.startDate}）` : ''}，未完成当天任务即扣分</li>
                 </ul>
                 <h3 style="font-size:15px;color:#ffc75f;margin-bottom:6px;">🎰 抽奖规则</h3>
                 <ul style="padding-left:20px;margin-bottom:12px;">
@@ -3825,6 +3826,11 @@
             el.innerHTML = html;
 
             let totalPotential = reminders.reduce((s, r) => s + r.potentialStars, 0);
+            // 加上未打卡的扣分损失
+            let ccfg = myCheckinConfig();
+            if (ccfg.enabled && ccfg.startDate && todayKey() >= ccfg.startDate && !isAllTasksDone(u)) {
+                totalPotential += ccfg.penalty;
+            }
             if (totalPotential > 0) {
                 let countdownEl = document.getElementById("reminder-countdown");
                 let now = new Date();
