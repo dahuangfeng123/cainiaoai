@@ -2115,6 +2115,15 @@
                     <li>之后每10连击额外 +20⭐</li>
                     <li>答错1题连击归零</li>
                 </ul>
+                <h3 style="font-size:15px;color:#e65100;margin-bottom:6px;">📅 打卡规则</h3>
+                <ul style="padding-left:20px;margin-bottom:12px;">
+                    <li>当天完成所有任务（学习+复习+考试）即为打卡成功</li>
+                    <li>连续打卡天数越多，每日奖励越高：</li>
+                    <li style="list-style:none;padding-left:16px;">第1天 +30⭐ → 第2天 +60⭐ → 第3-7天 +120⭐/天 → 第8-14天 +180⭐/天 → 第15天起 +250⭐/天</li>
+                    <li>中断或未完成当天任务，扣600⭐，连续天数归零</li>
+                    <li>连续多日未完成，每天各扣600⭐</li>
+                    <li>从打卡开始日期起，未完成当天任务即扣分</li>
+                </ul>
                 <h3 style="font-size:15px;color:#ffc75f;margin-bottom:6px;">🎰 抽奖规则</h3>
                 <ul style="padding-left:20px;margin-bottom:12px;">
                     <li>积分须达 ${config.starThreshold || 5000}⭐ 才能抽奖</li>
@@ -2500,6 +2509,17 @@
             examPerfectReward: 100,
             examClearReward: 50
         };
+        // 打卡功能默认配置
+        const DEFAULT_CHECKIN_CONFIG = {
+            enabled: false,
+            startDate: '',
+            day1Reward: 30,
+            day2Reward: 60,
+            day3to7Reward: 120,
+            day8to14Reward: 180,
+            day15PlusReward: 250,
+            penalty: 600
+        };
         const DEFAULT_EXAM_CONFIG = {
             examCount: 100,
             questionTime: 60
@@ -2527,6 +2547,107 @@
         function myTaskConfig() {
             let all = getTaskConfig();
             return all[user] || { ...DEFAULT_TASK_CONFIG };
+        }
+        // 打卡配置读取
+        function getCheckinConfig() {
+            try {
+                let c = JSON.parse(localStorage.getItem('checkin_config'));
+                if (!c) return { A: { ...DEFAULT_CHECKIN_CONFIG }, B: { ...DEFAULT_CHECKIN_CONFIG } };
+                return {
+                    A: { ...DEFAULT_CHECKIN_CONFIG, ...(c.A || {}) },
+                    B: { ...DEFAULT_CHECKIN_CONFIG, ...(c.B || {}) }
+                };
+            } catch { return { A: { ...DEFAULT_CHECKIN_CONFIG }, B: { ...DEFAULT_CHECKIN_CONFIG } }; }
+        }
+        function myCheckinConfig() {
+            let all = getCheckinConfig();
+            return all[user] || { ...DEFAULT_CHECKIN_CONFIG };
+        }
+        // 获取打卡奖励天数对应的星星数
+        function getCheckinReward(streak, cfg) {
+            if (streak === 1) return cfg.day1Reward;
+            if (streak === 2) return cfg.day2Reward;
+            if (streak <= 7) return cfg.day3to7Reward;
+            if (streak <= 14) return cfg.day8to14Reward;
+            return cfg.day15PlusReward;
+        }
+        // 检查今日任务是否全部完成
+        function isAllTasksDone(u) {
+            let today = todayKey();
+            let dailyLog = u.dailyLog[today] || { learn: 0, review: 0 };
+            let tc = myTaskConfig();
+            let learnDone = (dailyLog.learn || 0) >= tc.learnTarget;
+            let reviewDone = getTodayTasks().length === 0;
+            let examDone = getTodayExamCount() > 0;
+            return learnDone && reviewDone && examDone;
+        }
+        // 打卡检查核心逻辑：在页面加载和任务完成时调用
+        function checkCheckin() {
+            let cfg = myCheckinConfig();
+            if (!cfg.enabled) return;
+            let u = safeUser(getUser());
+            let today = todayKey();
+            // 未设置开始日期或今天还没到开始日期，不记录打卡
+            if (!cfg.startDate || today < cfg.startDate) return;
+            if (!u.checkin) u.checkin = { streak: 0, lastDate: '', lastCheckDate: '', penaltyDate: '' };
+            let ci = u.checkin;
+            // 今日已处理过，不重复
+            if (ci.lastCheckDate === today) return;
+
+            // 检查中断扣分：从lastDate的下一天或startDate（取较晚者）开始，到昨天
+            let yesterdayObj = new Date();
+            yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+            yesterdayObj.setHours(0, 0, 0, 0);
+            // 起始日期：lastDate的下一天，或startDate，取较晚者
+            let startCheck;
+            if (ci.lastDate) {
+                startCheck = new Date(ci.lastDate + 'T00:00:00');
+                startCheck.setDate(startCheck.getDate() + 1);
+            } else {
+                startCheck = new Date(cfg.startDate + 'T00:00:00');
+            }
+            let startDateObj = new Date(cfg.startDate + 'T00:00:00');
+            if (startCheck < startDateObj) startCheck = startDateObj;
+
+            let totalPenalty = 0;
+            let d = new Date(startCheck);
+            while (d <= yesterdayObj) {
+                let dKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                // 只对未扣过分的日期扣分
+                if (ci.penaltyDate !== dKey) {
+                    totalPenalty += cfg.penalty;
+                    ci.penaltyDate = dKey;
+                }
+                d.setDate(d.getDate() + 1);
+            }
+            if (totalPenalty > 0) {
+                ci.streak = 0;
+                u.stars = Math.max(0, (u.stars || 0) - totalPenalty);
+                setUser(u);
+                let missedDays = totalPenalty / cfg.penalty;
+                showStarAnimation(-totalPenalty, `连续${missedDays}天未完成打卡！归零，-${totalPenalty}⭐`);
+                renderStarDisplay();
+            }
+
+            // 检查今日是否全部完成
+            if (isAllTasksDone(u)) {
+                let yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                let yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                // 计算连续天数
+                if (ci.lastDate === yKey) {
+                    ci.streak = (ci.streak || 0) + 1;
+                } else {
+                    ci.streak = 1;
+                }
+                ci.lastDate = today;
+                ci.lastCheckDate = today;
+                let reward = getCheckinReward(ci.streak, cfg);
+                u.stars = (u.stars || 0) + reward;
+                setUser(u);
+                showStarAnimation(reward, `🎉 连续打卡第${ci.streak}天！+${reward}⭐`);
+                renderStarDisplay();
+            }
         }
         function myExamConfig() {
             let all = getExamConfig();
@@ -3226,6 +3347,7 @@
             }
             closeLearnModal();
             renderAll();
+            checkCheckin(); // 学习完成后检查打卡
         }
 
         function openIciba() {
@@ -3459,6 +3581,7 @@
             } else {
                 toast('自由复习结束', 'info');
             }
+            checkCheckin(); // 复习完成后检查打卡
         }
 
         function openModal(idx) {
@@ -3566,12 +3689,14 @@
             document.getElementById("a-wait").innerText = countWait(a);
             document.getElementById("a-done").innerText = a.done.length;
             document.getElementById("a-skilled").innerText = (a.skilled || []).length;
-            document.getElementById("a-stars").innerText = a.stars || 0;
+            let diffA = (a.stars || 0) - (b.stars || 0);
+            document.getElementById("a-stars").innerText = (a.stars || 0) + (diffA > 0 ? `（真棒！领先${diffA}星星）` : diffA < 0 ? `（奋斗吧少年！）` : '');
             document.getElementById("b-total").innerText = b.learn.length;
             document.getElementById("b-wait").innerText = countWait(b);
             document.getElementById("b-done").innerText = b.done.length;
             document.getElementById("b-skilled").innerText = (b.skilled || []).length;
-            document.getElementById("b-stars").innerText = b.stars || 0;
+            let diffB = (b.stars || 0) - (a.stars || 0);
+            document.getElementById("b-stars").innerText = (b.stars || 0) + (diffB > 0 ? `（真棒！领先${diffB}星星）` : diffB < 0 ? `（奋斗吧少年！）` : '');
             document.getElementById("my-total").innerText = u.learn.length;
             document.getElementById("my-wait").innerText = countWait(u);
             document.getElementById("my-done").innerText = u.done.length;
@@ -3662,10 +3787,17 @@
             if (!el) return;
 
             if (allDone) {
+                let ci = u.checkin || { streak: 0 };
+                let checkinHtml = '';
+                let cfg = myCheckinConfig();
+                if (cfg.enabled) {
+                    checkinHtml = `<div style="font-size:13px;color:#ff9800;margin-top:6px;">🔥 连续打卡 ${ci.streak || 0} 天</div>`;
+                }
                 el.innerHTML = `<div style="text-align:center;padding:20px;">
                     <div style="font-size:48px;margin-bottom:8px;">🎉</div>
                     <div style="font-size:18px;font-weight:bold;color:#66bb6a;">今日任务全部完成！</div>
                     <div style="font-size:13px;color:#999;margin-top:4px;">太棒了，继续保持！</div>
+                    ${checkinHtml}
                 </div>`;
                 document.getElementById("reminder-card").style.display = '';
                 document.getElementById("reminder-countdown").style.display = 'none';
@@ -5151,6 +5283,7 @@
             }
             checkWrongClearBonus();
             renderWrongPool();
+            checkCheckin(); // 考试完成后检查打卡
         }
 
         function checkWrongClearBonus() {
@@ -5776,6 +5909,7 @@
             renderRules();
             show("home");
             startReminderTimer();
+            checkCheckin(); // 页面加载时检查打卡状态
             window.addEventListener('scroll', function() {
                 let btn = document.getElementById('back-top');
                 if (window.scrollY > window.innerHeight) btn.classList.add('show');

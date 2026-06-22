@@ -224,6 +224,28 @@ const DEFAULT_TASK_CONFIG = {
     examPerfectReward: 100,
     examClearReward: 50
 };
+// 打卡功能默认配置
+const DEFAULT_CHECKIN_CONFIG = {
+    enabled: false,
+    startDate: '',
+    day1Reward: 30,
+    day2Reward: 60,
+    day3to7Reward: 120,
+    day8to14Reward: 180,
+    day15PlusReward: 250,
+    penalty: 600
+};
+function getCheckinConfig() {
+    try {
+        let c = JSON.parse(localStorage.getItem('checkin_config'));
+        if (!c) return { A: { ...DEFAULT_CHECKIN_CONFIG }, B: { ...DEFAULT_CHECKIN_CONFIG } };
+        return {
+            A: { ...DEFAULT_CHECKIN_CONFIG, ...(c.A || {}) },
+            B: { ...DEFAULT_CHECKIN_CONFIG, ...(c.B || {}) }
+        };
+    } catch { return { A: { ...DEFAULT_CHECKIN_CONFIG }, B: { ...DEFAULT_CHECKIN_CONFIG } }; }
+}
+function setCheckinConfig(c) { localStorage.setItem('checkin_config', JSON.stringify(c)); }
 function getTaskConfig() {
     try {
         let c = JSON.parse(localStorage.getItem('task_config'));
@@ -381,6 +403,55 @@ function renderStudent(who) {
             <div class="btn-group">
                 <button class="btn btn-primary" onclick="saveTaskConfig('${who}')">💾 保存配置</button>
                 <button class="btn btn-danger" onclick="resetTaskConfig('${who}')">🔄 恢复默认</button>
+            </div>`;
+        })()}
+    </div>
+    <div class="card">
+        <h2>🔥 打卡配置</h2>
+        ${(() => {
+            let cc = getCheckinConfig()[who] || { ...DEFAULT_CHECKIN_CONFIG };
+            return `
+            <div style="margin-bottom:12px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cc-enabled-${who}" ${cc.enabled ? 'checked' : ''} style="width:18px;height:18px;">
+                    <span style="font-size:14px;font-weight:bold;">启用打卡功能</span>
+                </label>
+                <div style="font-size:12px;color:#999;margin-top:4px;">开启后，连续完成当天所有任务可获得额外星星奖励，中断或未完成扣星</div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;color:#888;">打卡开始日期</label>
+                <input type="date" id="cc-startDate-${who}" value="${cc.startDate || ''}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                <div style="font-size:11px;color:#999;margin-top:2px;">从该日期起开始记录打卡，之前的日期不扣分</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px;color:#888;">第1天奖励（⭐）</label>
+                    <input type="number" id="cc-day1Reward-${who}" value="${cc.day1Reward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">第2天奖励（⭐）</label>
+                    <input type="number" id="cc-day2Reward-${who}" value="${cc.day2Reward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">第3-7天奖励（⭐）</label>
+                    <input type="number" id="cc-day3to7Reward-${who}" value="${cc.day3to7Reward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">第8-14天奖励（⭐）</label>
+                    <input type="number" id="cc-day8to14Reward-${who}" value="${cc.day8to14Reward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">第15天及以后奖励（⭐）</label>
+                    <input type="number" id="cc-day15PlusReward-${who}" value="${cc.day15PlusReward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">中断/未完成扣星（⭐）</label>
+                    <input type="number" id="cc-penalty-${who}" value="${cc.penalty}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveCheckinConfig('${who}')">💾 保存配置</button>
+                <button class="btn btn-danger" onclick="resetCheckinConfig('${who}')">🔄 恢复默认</button>
             </div>`;
         })()}
     </div>
@@ -1064,6 +1135,29 @@ function resetTaskConfig(who) {
     setTaskConfig(all);
     renderStudent(who);
     showToast(`同学${who}任务配置已恢复默认`, 'success');
+}
+function saveCheckinConfig(who) {
+    let all = getCheckinConfig();
+    all[who] = {
+        enabled: document.getElementById('cc-enabled-' + who).checked,
+        startDate: document.getElementById('cc-startDate-' + who).value || '',
+        day1Reward: parseInt(document.getElementById('cc-day1Reward-' + who).value) || DEFAULT_CHECKIN_CONFIG.day1Reward,
+        day2Reward: parseInt(document.getElementById('cc-day2Reward-' + who).value) || DEFAULT_CHECKIN_CONFIG.day2Reward,
+        day3to7Reward: parseInt(document.getElementById('cc-day3to7Reward-' + who).value) || DEFAULT_CHECKIN_CONFIG.day3to7Reward,
+        day8to14Reward: parseInt(document.getElementById('cc-day8to14Reward-' + who).value) || DEFAULT_CHECKIN_CONFIG.day8to14Reward,
+        day15PlusReward: parseInt(document.getElementById('cc-day15PlusReward-' + who).value) || DEFAULT_CHECKIN_CONFIG.day15PlusReward,
+        penalty: parseInt(document.getElementById('cc-penalty-' + who).value) || DEFAULT_CHECKIN_CONFIG.penalty
+    };
+    setCheckinConfig(all);
+    showToast(`同学${who}打卡配置已保存`, 'success');
+}
+function resetCheckinConfig(who) {
+    if (!confirm(`确定恢复同学${who}的打卡配置为默认值？`)) return;
+    let all = getCheckinConfig();
+    all[who] = { ...DEFAULT_CHECKIN_CONFIG };
+    setCheckinConfig(all);
+    renderStudent(who);
+    showToast(`同学${who}打卡配置已恢复默认`, 'success');
 }
 function saveExamConfig(who) {
     let all = getExamConfig();
