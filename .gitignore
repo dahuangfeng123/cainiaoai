@@ -18,3 +18,4 @@ __pycache__/
 data/audio/
 temp/
 speechbrain-asr/server/wav2vec2.ckpt
+data/~$《20000单词表》.xlsx

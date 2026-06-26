@@ -2590,8 +2590,10 @@
             let today = todayKey();
             // 未设置开始日期或今天还没到开始日期，不记录打卡
             if (!cfg.startDate || today < cfg.startDate) return;
-            if (!u.checkin) u.checkin = { streak: 0, lastDate: '', lastCheckDate: '', penaltyDate: '' };
+            if (!u.checkin) u.checkin = { streak: 0, lastDate: '', lastCheckDate: '', penaltyDates: [] };
             let ci = u.checkin;
+            // 兼容旧数据
+            if (!ci.penaltyDates) ci.penaltyDates = [];
             // 今日已处理过，不重复
             if (ci.lastCheckDate === today) return;
 
@@ -2609,15 +2611,20 @@
             }
             let startDateObj = new Date(cfg.startDate + 'T00:00:00');
             if (startCheck < startDateObj) startCheck = startDateObj;
+            // 最多只检查最近30天
+            let maxCheck = new Date();
+            maxCheck.setDate(maxCheck.getDate() - 30);
+            maxCheck.setHours(0, 0, 0, 0);
+            if (startCheck < maxCheck) startCheck = maxCheck;
 
             let totalPenalty = 0;
             let d = new Date(startCheck);
             while (d <= yesterdayObj) {
                 let dKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 // 只对未扣过分的日期扣分
-                if (ci.penaltyDate !== dKey) {
+                if (!ci.penaltyDates.includes(dKey)) {
                     totalPenalty += cfg.penalty;
-                    ci.penaltyDate = dKey;
+                    ci.penaltyDates.push(dKey);
                 }
                 d.setDate(d.getDate() + 1);
             }
