@@ -1734,7 +1734,7 @@
                         <span style="color:#666;font-size:14px;">⏱ <span id="exam-timer">00:00</span></span>
                         <span style="color:#666;font-size:14px;">⏳ <span id="exam-question-timer" style="font-weight:bold;color:#4caf50;">30</span>秒</span>
                         <span style="color:#666;font-size:14px;">进度：<span id="exam-current">0</span> / <span id="exam-total">100</span></span>
-                        <button id="exam-cancel-btn" onclick="cancelExam()" style="background:none;border:2px solid #ef5350;border-radius:50%;width:28px;height:28px;color:#ef5350;font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;font-weight:bold;line-height:1;" title="取消考试">✕</button>
+                        <button id="exam-cancel-btn" onclick="cancelExam()" style="background:none;border:2px solid #ef5350;border-radius:50%;width:28px;height:28px;color:#ef5350;font-size:16px;cursor:pointer;align-items:center;justify-content:center;font-weight:bold;line-height:1;" title="取消考试">✕</button>
                     </div>
                 </div>
                 <div class="theme-progress-bg" style="background:#fff9c4;border-radius:8px;height:8px;margin-bottom:20px;overflow:hidden;">
@@ -5875,6 +5875,7 @@
         }
 
         function renderAll() {
+            renderRules();
             renderExam();
             renderCollins();
             renderStatusFilter();
