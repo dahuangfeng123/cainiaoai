@@ -1988,12 +1988,31 @@
             renderStarDisplay();
         }
 
+        let starAnimationQueue = [];
+        let isPlayingStarAnimation = false;
+
         function showStarAnimation(count, reason) {
+            starAnimationQueue.push({ count, reason });
+            if (!isPlayingStarAnimation) {
+                processStarAnimationQueue();
+            }
+        }
+
+        function processStarAnimationQueue() {
+            if (starAnimationQueue.length === 0) {
+                isPlayingStarAnimation = false;
+                return;
+            }
+            isPlayingStarAnimation = true;
+            let item = starAnimationQueue.shift();
             let el = document.createElement('div');
             el.className = 'star-fly';
-            el.innerHTML = '⭐' + (count > 1 ? ' ×' + count : '') + (reason ? ' ' + reason : '');
+            el.innerHTML = '⭐' + (item.count > 1 ? ' ×' + item.count : '') + (item.reason ? ' ' + item.reason : '');
             document.body.appendChild(el);
-            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2000);
+            setTimeout(() => {
+                if (el.parentNode) el.parentNode.removeChild(el);
+                setTimeout(processStarAnimationQueue, 300);
+            }, 2000);
         }
 
         function renderStarDisplay() {
