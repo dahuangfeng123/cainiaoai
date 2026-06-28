@@ -44,8 +44,9 @@
             justify-content: space-between;
             padding: 0 25px;
             box-shadow: 0 4px 15px rgba(255, 111, 145, 0.3);
-            position: relative;
-            z-index: 10;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .top::after {
@@ -1539,7 +1540,7 @@
 
         <!-- 个人中心 -->
         <div class="page" id="page-mine">
-            <div id="mine-nav" style="position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#fff9c4,#e1f5fe,#f3e5f5);padding:10px 12px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
+            <div id="mine-nav" style="position:sticky;top:60px;z-index:20;background:linear-gradient(135deg,#fff9c4,#e1f5fe,#f3e5f5);padding:10px 12px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
             <div class="card">
                 <h2>🎨 页面风格</h2>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -5945,7 +5946,7 @@
             checkCheckin(); // 页面加载时检查打卡状态
             window.addEventListener('scroll', function() {
                 let btn = document.getElementById('back-top');
-                if (window.scrollY > window.innerHeight) btn.classList.add('show');
+                if (window.scrollY > window.innerHeight/4) btn.classList.add('show');
                 else btn.classList.remove('show');
             });
         };
