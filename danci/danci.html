@@ -2012,7 +2012,7 @@
             document.body.appendChild(el);
             setTimeout(() => {
                 if (el.parentNode) el.parentNode.removeChild(el);
-                setTimeout(processStarAnimationQueue, 600);
+                setTimeout(processStarAnimationQueue, 3000);
             }, 3000);
         }
 
@@ -3939,11 +3939,23 @@
                     let displayMode = mode === 0 ? 1 : mode; // 综合考试模式使用看词写义
                     let hideWord = (displayMode == 2 || displayMode == 3);
                     let hideMeaning = (displayMode == 1);
+                    // 获取艾宾浩斯复习周期
+                    let log = u.log[t.idx];
+                    let reviewCount = log ? (log.c || 0) : 0;
+                    let periodLabel = '';
+                    if (reviewCount > 0 && reviewCount < PERIOD.length) {
+                        let prevDays = PERIOD[reviewCount - 1];
+                        let nextDays = PERIOD[reviewCount];
+                        let interval = nextDays - prevDays;
+                        periodLabel = `<span style="font-size:11px;color:#845ec2;background:rgba(132,94,194,0.1);padding:1px 6px;border-radius:8px;margin-left:4px;">第${reviewCount}轮·${interval}天</span>`;
+                    } else if (reviewCount >= PERIOD.length) {
+                        periodLabel = `<span style="font-size:11px;color:#66bb6a;background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:8px;margin-left:4px;">已毕业</span>`;
+                    }
                     if (isFuture) {
                         html += `
         <div class="word-item" style="opacity:0.7;">
             <div>
-                <span class="word-text">${t.word.word}</span>
+                <span class="word-text">${t.word.word}${periodLabel}</span>
                 <div class="word-meaning">${t.word.meaning}</div>
             </div>
             <div>
@@ -3954,7 +3966,7 @@
                         html += `
         <div class="word-item${isPast ? ' overdue-item' : ''}">
             <div>
-                <span class="word-text">${hideWord ? '____' : t.word.word}</span>
+                <span class="word-text">${hideWord ? '____' : t.word.word}${periodLabel}</span>
                 <div class="word-meaning">${hideMeaning ? '' : t.word.meaning}</div>
             </div>
             <div>
