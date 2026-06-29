@@ -5,8 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>单词复习工具 - 艾宾浩斯双用户版</title>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
     <style>
         .exam-urgent {
             animation: examPulse 0.5s ease-in-out infinite;
@@ -4275,7 +4273,11 @@
         // ==============================
         // 下载单词xlsx
         // ==============================
-        function downloadXlsx() {
+        async function downloadXlsx() {
+            // 按需加载SheetJS
+            if (typeof XLSX === 'undefined') {
+                await loadScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
+            }
             let words = getWords();
             let data = [["单词", "柯林斯分级", "考试范围", "词义"]];
             words.forEach(w => data.push([w.word, w.collins, w.exam, w.meaning]));
@@ -5956,6 +5958,20 @@
         // ==============================
         let dailyChartInstance = null;
 
+        // ===== CDN按需加载器 =====
+        let _loadedScripts = {};
+        function loadScript(url) {
+            if (_loadedScripts[url]) return _loadedScripts[url];
+            _loadedScripts[url] = new Promise((resolve, reject) => {
+                let s = document.createElement('script');
+                s.src = url;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.body.appendChild(s);
+            });
+            return _loadedScripts[url];
+        }
+
         // 渲染星星流水
         async function renderStarLog(which) {
             document.getElementById("starlog-btn-A").className = which === 'A' ? 'btn btn-blue' : 'btn btn-gray';
@@ -6008,7 +6024,11 @@
             listEl.innerHTML = html;
         }
 
-        function renderDailyChart(which) {
+        async function renderDailyChart(which) {
+            // 按需加载Chart.js
+            if (typeof Chart === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js');
+            }
             document.getElementById("chart-btn-A").className = which === 'A' ? 'btn btn-blue' : 'btn btn-gray';
             document.getElementById("chart-btn-B").className = which === 'B' ? 'btn btn-blue' : 'btn btn-gray';
             let isSimple = currentTheme === "simple";
