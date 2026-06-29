@@ -3041,7 +3041,10 @@
             }
             let kw = (document.getElementById("word-search").value || "").trim().toLowerCase();
             if (kw) {
-                list = list.filter(w => w.word.toLowerCase().includes(kw) || w.meaning.toLowerCase().includes(kw));
+                // 前缀匹配优先，再包含匹配
+                let prefixMatches = list.filter(w => w.word.toLowerCase().startsWith(kw) || w.meaning.toLowerCase().startsWith(kw));
+                let containsMatches = list.filter(w => !prefixMatches.includes(w) && (w.word.toLowerCase().includes(kw) || w.meaning.toLowerCase().includes(kw)));
+                list = [...prefixMatches, ...containsMatches];
             }
             let filterKey = user + "|" + currExam + "|" + currCollins + "|" + currStatus + "|" + kw;
             if (forceReset || filterKey !== lastFilterKey) {
