@@ -1592,6 +1592,15 @@
                 <div id="exam-scores-list"></div>
             </div>
             <div class="card">
+                <h2>💰 星星流水</h2>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <button class="btn btn-blue" onclick="renderStarLog('A')" id="starlog-btn-A">同学A</button>
+                    <button class="btn btn-gray" onclick="renderStarLog('B')" id="starlog-btn-B">同学B</button>
+                </div>
+                <div id="star-log-summary" style="margin-bottom:10px;font-size:13px;color:#666;"></div>
+                <div id="star-log-list" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="card">
                 <h2>📊 近30天学习统计</h2>
                 <div style="display:flex;gap:6px;margin-bottom:12px;">
                     <button class="btn btn-blue" onclick="renderDailyChart('A')" id="chart-btn-A">同学A</button>
@@ -1945,12 +1954,103 @@
             try { new Audio('audio/' + name + '.mp3').play(); } catch(e) {}
         }
 
+        // ===== 星星流水 IndexDB 模块 =====
+        let starLogDB = null;
+
+        function initStarLogDB() {
+            return new Promise((resolve, reject) => {
+                let req = indexedDB.open('StarLogDB', 1);
+                req.onupgradeneeded = function(e) {
+                    let db = e.target.result;
+                    if (!db.objectStoreNames.contains('logs')) {
+                        let store = db.createObjectStore('logs', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('user', 'user', { unique: false });
+                        store.createIndex('date', 'date', { unique: false });
+                        store.createIndex('user_date', ['user', 'date'], { unique: false });
+                    }
+                };
+                req.onsuccess = function(e) {
+                    starLogDB = e.target.result;
+                    resolve(starLogDB);
+                };
+                req.onerror = function(e) {
+                    console.error('IndexDB打开失败', e);
+                    reject(e);
+                };
+            });
+        }
+
+        // 记录星星流水
+        function logStarChange(user, change, reason) {
+            if (!starLogDB) return;
+            try {
+                let tx = starLogDB.transaction('logs', 'readwrite');
+                let store = tx.objectStore('logs');
+                let now = new Date();
+                let dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                store.add({
+                    user: user,
+                    change: change,  // 正数为加，负数为减
+                    reason: reason,
+                    date: dateKey,
+                    time: now.toLocaleString('zh-CN')
+                });
+            } catch(e) {
+                console.error('星星流水记录失败', e);
+            }
+        }
+
+        // 查询某同学某日的流水
+        function queryStarLogs(user, date) {
+            return new Promise((resolve) => {
+                if (!starLogDB) { resolve([]); return; }
+                let tx = starLogDB.transaction('logs', 'readonly');
+                let store = tx.objectStore('logs');
+                let index = store.index('user_date');
+                let range = IDBKeyRange.only([user, date]);
+                let req = index.getAll(range);
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
+            });
+        }
+
+        // 查询某同学所有流水（按日期倒序）
+        function queryAllStarLogs(user) {
+            return new Promise((resolve) => {
+                if (!starLogDB) { resolve([]); return; }
+                let tx = starLogDB.transaction('logs', 'readonly');
+                let store = tx.objectStore('logs');
+                let index = store.index('user');
+                let req = index.getAll(user);
+                req.onsuccess = () => {
+                    let logs = req.result || [];
+                    logs.sort((a, b) => b.id - a.id);  // 按id倒序（最新的在前）
+                    resolve(logs);
+                };
+                req.onerror = () => resolve([]);
+            });
+        }
+
         function addStars(count, reason) {
             let u = safeUser(getUser());
             u.stars = (u.stars || 0) + count;
             setUser(u);
             showStarAnimation(count, reason);
             renderStarDisplay();
+            logStarChange(user, count, reason);
+        }
+
+        // 扣减星星（统一扣减入口，记录流水）
+        function deductStars(count, reason) {
+            let u = safeUser(getUser());
+            let actual = Math.min(count, u.stars || 0);
+            u.stars = Math.max(0, (u.stars || 0) - actual);
+            setUser(u);
+            if (actual > 0) {
+                showStarAnimation(-actual, reason);
+            }
+            renderStarDisplay();
+            logStarChange(user, -actual, reason);
         }
 
         function addComboStar() {
@@ -1976,11 +2076,9 @@
             else if (u.combo > 10 && u.combo % 10 === 0) bonus = 20;
             u.stars = (u.stars || 0) + 1 + bonus;
             setUser(u);
-            if (bonus > 0) {
-                showStarAnimation(1 + bonus, '连击' + u.combo + '次！+' + (1 + bonus) + '星');
-            } else {
-                showStarAnimation(1, '+1星');
-            }
+            let comboReason = bonus > 0 ? '连击' + u.combo + '次！+' + (1 + bonus) + '星' : '+1星';
+            showStarAnimation(1 + bonus, comboReason);
+            logStarChange(user, 1 + bonus, comboReason);
             renderStarDisplay();
         }
 
@@ -2351,6 +2449,7 @@
             u.stars -= config.cost;
             if (u.lotteryRedeemUnlock && !u.lotteryRedeemUnlock.used) u.lotteryRedeemUnlock.used = true;
             setUser(u);
+            logStarChange(user, -config.cost, '抽奖消耗');
             renderStarDisplay();
 
             let allPrizeIds = [];
@@ -2391,8 +2490,10 @@
                         if (hitEl) hitEl.classList.add('lottery-hit');
                         u = safeUser(getUser());
                         if (prize.type === 'bad') {
+                            let actualDeduct = Math.min(config.badDeduct, u.stars || 0);
                             u.stars = Math.max(0, (u.stars || 0) - config.badDeduct);
                             setUser(u);
+                            logStarChange(user, -actualDeduct, '抽奖惩罚：' + prize.name);
                             resultEl.style.background = '#ffcdd2';
                             resultEl.style.color = '#c5221f';
                             resultEl.innerHTML = `${prize.emoji} ${prize.name}！`;
@@ -2482,6 +2583,7 @@
             u.prizes.push({ emoji: item.emoji, name: item.name, date: todayKey() });
             u.lotteryRedeemUnlock = { time: Date.now(), used: false };
             setUser(u);
+            logStarChange(user, -cost, '兑奖：' + name);
             addLotteryLog('redeem', item.emoji, item.name, -cost);
             try {
                 let resultEl = document.getElementById("lottery-result");
@@ -2657,10 +2759,12 @@
             }
             if (totalPenalty > 0) {
                 ci.streak = 0;
+                let actualPenalty = Math.min(totalPenalty, u.stars || 0);
                 u.stars = Math.max(0, (u.stars || 0) - totalPenalty);
                 setUser(u);
                 let missedDays = totalPenalty / cfg.penalty;
                 showStarAnimation(-totalPenalty, `连续${missedDays}天未完成打卡！归零，-${totalPenalty}⭐`);
+                logStarChange(user, -actualPenalty, `连续${missedDays}天未完成打卡`);
                 renderStarDisplay();
             }
 
@@ -2680,7 +2784,9 @@
                 let reward = getCheckinReward(ci.streak, cfg);
                 u.stars = (u.stars || 0) + reward;
                 setUser(u);
-                showStarAnimation(reward, `🎉 连续打卡第${ci.streak}天！+${reward}⭐`);
+                let rewardReason = `连续打卡第${ci.streak}天`;
+                showStarAnimation(reward, `🎉 ${rewardReason}！+${reward}⭐`);
+                logStarChange(user, reward, rewardReason);
                 renderStarDisplay();
             }
         }
@@ -3639,6 +3745,7 @@
                 });
                 if (reviewPendingStars > 0) {
                     u.stars = (u.stars || 0) + reviewPendingStars;
+                    logStarChange(user, reviewPendingStars, '复习连击星星');
                 }
                 u.combo = reviewPendingCombo;
                 setUser(u);
@@ -5206,6 +5313,7 @@
             if (todayExamCount === 0) {
                 u.stars = Math.max(0, (u.stars || 0) - 5);
                 setUser(u);
+                logStarChange(user, -5, '考试答错扣分');
                 renderStarDisplay();
             }
             let fb = document.getElementById("exam-feedback");
@@ -5274,6 +5382,7 @@
                     let u = safeUser(getUser());
                     u.stars = Math.max(0, (u.stars || 0) - 5);
                     setUser(u);
+                    logStarChange(user, -5, '考试答错扣分');
                     renderStarDisplay();
                     fb.style.background = "#ffcdd2";
                     fb.style.color = "#c5221f";
@@ -5764,6 +5873,7 @@
                 if (!isTodayCopied) {
                     u.stars = (u.stars || 0) + 1;
                     setUser(u);
+                    logStarChange(user, 1, '抄写练习完成');
                     renderStarDisplay();
                     playSound('correct');
                     fb.style.background = '#c8e6c9';
@@ -5845,6 +5955,58 @@
         // 渲染全部
         // ==============================
         let dailyChartInstance = null;
+
+        // 渲染星星流水
+        async function renderStarLog(which) {
+            document.getElementById("starlog-btn-A").className = which === 'A' ? 'btn btn-blue' : 'btn btn-gray';
+            document.getElementById("starlog-btn-B").className = which === 'B' ? 'btn btn-blue' : 'btn btn-gray';
+            let logs = await queryAllStarLogs(which);
+            let summaryEl = document.getElementById("star-log-summary");
+            let listEl = document.getElementById("star-log-list");
+            if (!logs || logs.length === 0) {
+                summaryEl.innerHTML = '<span style="color:#bbb;">暂无流水记录</span>';
+                listEl.innerHTML = '';
+                return;
+            }
+            // 按日期分组汇总
+            let dateMap = new Map();
+            for (let log of logs) {
+                if (!dateMap.has(log.date)) dateMap.set(log.date, { income: 0, expense: 0, items: [] });
+                let day = dateMap.get(log.date);
+                if (log.change > 0) day.income += log.change;
+                else day.expense += Math.abs(log.change);
+                day.items.push(log);
+            }
+            let dates = [...dateMap.keys()].sort().reverse();  // 日期倒序
+            // 汇总信息
+            let totalIncome = logs.reduce((s, l) => s + (l.change > 0 ? l.change : 0), 0);
+            let totalExpense = logs.reduce((s, l) => s + (l.change < 0 ? Math.abs(l.change) : 0), 0);
+            summaryEl.innerHTML = `累计收入 <span style="color:#66bb6a;font-weight:bold;">+${totalIncome}⭐</span> | 累计支出 <span style="color:#ef5350;font-weight:bold;">-${totalExpense}⭐</span> | 共 ${logs.length} 条记录`;
+            // 按日期渲染
+            let html = '';
+            for (let date of dates) {
+                let day = dateMap.get(date);
+                let net = day.income - day.expense;
+                let netLabel = net >= 0 ? `<span style="color:#66bb6a;">+${net}</span>` : `<span style="color:#ef5350;">${net}</span>`;
+                html += `<div style="background:#f8f9fa;border-radius:8px;padding:8px 12px;margin-bottom:8px;">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`;
+                html += `<span style="font-weight:bold;font-size:13px;color:#333;">📅 ${date}</span>`;
+                html += `<span style="font-size:12px;">收入 <span style="color:#66bb6a;">+${day.income}</span> 支出 <span style="color:#ef5350;">-${day.expense}</span> 净值 ${netLabel}</span>`;
+                html += `</div>`;
+                html += `<div style="font-size:12px;line-height:1.8;">`;
+                for (let item of day.items) {
+                    let changeLabel = item.change > 0
+                        ? `<span style="color:#66bb6a;font-weight:bold;">+${item.change}⭐</span>`
+                        : `<span style="color:#ef5350;font-weight:bold;">${item.change}⭐</span>`;
+                    html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #f0f0f0;">`;
+                    html += `<span style="color:#555;">${item.reason || '未知'}</span>`;
+                    html += `<span>${changeLabel} <span style="color:#bbb;font-size:11px;">${item.time ? item.time.split(' ')[1] || '' : ''}</span></span>`;
+                    html += `</div>`;
+                }
+                html += `</div></div>`;
+            }
+            listEl.innerHTML = html;
+        }
 
         function renderDailyChart(which) {
             document.getElementById("chart-btn-A").className = which === 'A' ? 'btn btn-blue' : 'btn btn-gray';
@@ -5970,6 +6132,7 @@
             renderCalendar();
             renderExamSetting();
             renderDailyChart(user);
+            renderStarLog(user);
             renderExamPool();
             renderExamScores();
             renderWrongPool();
@@ -6001,6 +6164,7 @@
 
         window.onload = function () {
             loadWords();
+            initStarLogDB(); // 初始化星星流水IndexDB
             loadRelations();
             mergeTingliData(); // 合并 tingli 数据
             applyTheme(currentTheme);
