@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>数学知识学习工具 - 艾宾浩斯双用户版</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"Comic Sans MS","Chalkboard SE","Microsoft YaHei",sans-serif}
 body{background:linear-gradient(135deg,#e8eaf6 0%,#e3f2fd 50%,#f3e5f5 100%);color:#333;min-height:100vh}
@@ -125,6 +125,7 @@ textarea:focus{outline:none;border-color:#5c6bc0;box-shadow:0 0 0 3px rgba(92,10
         <a onclick="show('exam')">📝 考试</a>
         <a onclick="show('stats')">📊 统计</a>
         <a onclick="show('prizes')">🎁 奖品</a>
+        <a href="../danci/danci.html">🔙 返回单词</a>
     </div>
     <div class="user" style="display:flex;align-items:center;gap:10px">
         <span class="star-display" id="star-count">⭐ 0</span>
