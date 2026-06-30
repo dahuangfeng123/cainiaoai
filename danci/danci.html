@@ -2116,7 +2116,7 @@
             setTimeout(() => {
                 if (el.parentNode) el.parentNode.removeChild(el);
                 setTimeout(processStarAnimationQueue, 300);
-            }, 3000);
+            }, 2000);
         }
 
         function renderStarDisplay() {
@@ -2230,7 +2230,7 @@
                     <li>首次完成考试 +${tc.examCompleteReward}⭐（低于90分奖励30%）</li>
                     <li>首次考试全对 +${tc.examPerfectReward}⭐</li>
                     <li>首次错题清零 +${tc.examClearReward}⭐</li>
-                    <li>考试答错1题 -5⭐</li>
+                    <li>复习/考试答错1题 -5⭐</li>
                 </ul>
                 <h3 style="font-size:15px;color:#845ec2;margin-bottom:6px;">🔥 连击奖励规则</h3>
                 <ul style="padding-left:20px;margin-bottom:12px;">
@@ -3560,6 +3560,7 @@
         let reviewIndex = 0;
         let reviewPassed = {};
         let reviewViewedAns = false;
+        let reviewCurrentWrong = false;  // 当前单词是否已答错
         let reviewPendingStars = 0;
         let reviewPendingCombo = 0;
         let isInReview = false;
@@ -3575,6 +3576,7 @@
             reviewIndex = 0;
             reviewPassed = {};
             reviewViewedAns = false;
+            reviewCurrentWrong = false;
             reviewPendingStars = 0;
             reviewPendingCombo = 0;
             reviewTotalCount = reviewQueue.length;
@@ -3595,6 +3597,7 @@
             let w = getWords()[idx];
             curr = { idx, item: w };
             reviewViewedAns = false;
+            reviewCurrentWrong = false;
             document.getElementById("review-round-info").innerHTML = `第${reviewRound}轮 · ${MODE_LABELS[reviewRound]}`;
             document.getElementById("review-progress-info").innerText = `${reviewIndex + 1} / ${reviewQueue.length}`;
             let passedInfo = reviewPassed[idx] || [];
@@ -3698,7 +3701,10 @@
             if (isTaskReview) {
                 resetCombo();
                 reviewSkipCount++;
-                deductStars(5, '复习跳过单词');
+                // 答错已扣过星，跳过不再重复扣
+                if (!reviewCurrentWrong) {
+                    deductStars(5, '一定要多多复习啊！');
+                }
             }
             let idx = reviewQueue.splice(reviewIndex, 1)[0];
             reviewQueue.push(idx);
