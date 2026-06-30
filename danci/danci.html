@@ -3564,6 +3564,8 @@
         let reviewPendingCombo = 0;
         let isInReview = false;
         let isTaskReview = false;
+        let reviewTotalCount = 0;  // 复习开始时的单词总数
+        let reviewSkipCount = 0;   // 跳过总次数
 
         function startReviewSession() {
             let tasks = getTodayTasks();
@@ -3575,6 +3577,8 @@
             reviewViewedAns = false;
             reviewPendingStars = 0;
             reviewPendingCombo = 0;
+            reviewTotalCount = reviewQueue.length;
+            reviewSkipCount = 0;
             isInReview = true;
             isTaskReview = true;
             setMode(1);
@@ -3691,7 +3695,11 @@
 
         function skipReviewWord() {
             if (reviewIndex >= reviewQueue.length) return;
-            if (isTaskReview) resetCombo();
+            if (isTaskReview) {
+                resetCombo();
+                reviewSkipCount++;
+                deductStars(5, '复习跳过单词');
+            }
             let idx = reviewQueue.splice(reviewIndex, 1)[0];
             reviewQueue.push(idx);
             if (!reviewPassed[idx]) reviewPassed[idx] = [];
@@ -3724,6 +3732,8 @@
                 let p = reviewPassed[idx];
                 return p.includes(1) && p.includes(2) && p.includes(3) && !p.includes('skip');
             });
+            // 所有原始单词都通过三轮且没有跳过，才算完整完成
+            let allCompleted = reviewed.length >= reviewTotalCount && reviewSkipCount === 0;
             if (isTaskReview) {
                 let u = safeUser(getUser());
                 reviewed.forEach(idx => {
@@ -3747,7 +3757,8 @@
                 }
                 u.combo = reviewPendingCombo;
                 setUser(u);
-                if (reviewed.length > 0) addStars(myTaskConfig().reviewReward, '复习任务完成！');
+                // 只有全部完成且没有跳过才奖励星星
+                if (allCompleted) addStars(myTaskConfig().reviewReward, '复习任务完成！');
             }
             isInReview = false;
             let wasTaskReview = isTaskReview;
@@ -3757,9 +3768,11 @@
             closeModal();
             renderAll();
             if (wasTaskReview) {
-                if (reviewed.length > 0) {
+                if (allCompleted) {
                     playSound('victory');
-                    toast(`复习完成！${reviewed.length} 个单词已通过三轮复习`, 'success');
+                    toast(`复习完成！${reviewed.length} 个单词全部通过三轮复习`, 'success');
+                } else if (reviewed.length > 0) {
+                    toast(`复习结束，${reviewed.length} 个单词通过三轮复习（有跳过，不奖励星星）`, 'warning');
                 } else {
                     toast('本轮无单词通过全部三轮复习', 'warning');
                 }
