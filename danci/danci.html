@@ -4878,8 +4878,10 @@
                 let row = dailyLoad[d];
                 let tc = row.total <= 30 ? '#34a853' : row.total <= 60 ? '#fbbc04' : '#ea4335';
                 let lrMin = Math.round(row.total * secPerWord / 60 * 10) / 10;
-                // 考试时间：工作日题数减半
-                let isWeekendRow = (d % 7 === 5 || d % 7 === 6);
+                // 考试时间：基于实际星期几判断工作日/周末
+                let actualDate = new Date();
+                actualDate.setDate(actualDate.getDate() + d);
+                let isWeekendRow = actualDate.getDay() === 0 || actualDate.getDay() === 6;
                 let dayExamCount = isWeekendRow ? examWordCount : Math.max(10, Math.ceil(examWordCount * 0.5));
                 let exMin = Math.round(dayExamCount * examSecPerWord / 60 * 10) / 10;
                 let totMin = Math.round((lrMin + exMin)*10)/10;
@@ -5597,9 +5599,16 @@
         }
 
         function startExam() {
+            let u = safeUser(getUser());
+            // 每日首次考试前检查错题库，有错题必须先清空
+            let wrongCount = Object.values(u.wrongPool || {}).filter(w => w.status === 1).length;
+            let todayExamCount = getTodayExamCount();
+            if (todayExamCount === 0 && wrongCount > 0) {
+                toast('还有 ' + wrongCount + ' 个错题未清空，请先完成错题重考！', 'warning');
+                return;
+            }
             let ec = myExamConfig();
             console.log('[考试配置] 学生:', user, '题目数量:', ec.examCount, '答题时间:', ec.questionTime + 's');
-            todayExamCount = getTodayExamCount();
             let cancelBtn = document.getElementById('exam-cancel-btn');
             if (todayExamCount > 0) {
                 toast('今日已完成 ' + todayExamCount + ' 次考试，后续考试无奖励', 'info');
