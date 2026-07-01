@@ -1614,6 +1614,36 @@
                 <div id="my-wrong-list"></div>
             </div>
             <div class="card">
+                <h2>📊 学习规划计算器</h2>
+                <p style="color:#666;font-size:13px;margin-bottom:10px;">根据艾宾浩斯遗忘曲线（1/2/4/7/15/30天），计算每日学习量对应的复习压力</p>
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">同学</label>
+                        <select id="plan-user" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                            <option value="A">同学A</option>
+                            <option value="B">同学B</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每天学习单词数</label>
+                        <input type="number" id="plan-learn-per-day" value="10" min="1" max="100" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每词答题时间（秒）</label>
+                        <input type="number" id="plan-seconds-per-word" value="15" min="5" max="120" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">计算天数</label>
+                        <input type="number" id="plan-days" value="60" min="7" max="365" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-blue" onclick="calcLearnPlan()">📊 理论预测</button>
+                    <button class="btn btn-green" onclick="calcRealPlan()">📈 真实情况</button>
+                </div>
+                <div id="plan-result" style="margin-top:12px;"></div>
+            </div>
+            <div class="card">
                 <h2>📝 英语词性速查表</h2>
                 <p style="margin-bottom:12px;color:#666;font-size:13px;">英语主要分为八大词性（Eight Parts of Speech），包括名词、代词、动词、形容词、副词、介词、连词和感叹词，部分分类会将冠词单独列出或加上数词。它们决定了单词在句子中的位置（如形容词修饰名词）和形式变化（如动词时态）。</p>
                 <div style="overflow-x:auto;">
@@ -1863,36 +1893,6 @@
                     <p>关系表格式：CSV，表头 原词,关系类型,目标词</p>
                     <p>关系类型：相似 / 同义词 / 同音词 / 部分同音 / 近义词 / 反义词 / 同词不同性 / 词形变化 / 比较级 / 最高级 / 序数词 / 过去式 / 过去分词</p>
                 </div>
-            </div>
-            <div class="card">
-                <h2>📊 学习规划计算器</h2>
-                <p style="color:#666;font-size:13px;margin-bottom:10px;">根据艾宾浩斯遗忘曲线（1/2/4/7/15/30天），计算每日学习量对应的复习压力</p>
-                <div style="display:flex;gap:10px;margin-bottom:10px;">
-                    <div style="flex:1;">
-                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">同学</label>
-                        <select id="plan-user" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
-                            <option value="A">同学A</option>
-                            <option value="B">同学B</option>
-                        </select>
-                    </div>
-                    <div style="flex:1;">
-                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每天学习单词数</label>
-                        <input type="number" id="plan-learn-per-day" value="10" min="1" max="100" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    <div style="flex:1;">
-                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每词答题时间（秒）</label>
-                        <input type="number" id="plan-seconds-per-word" value="15" min="5" max="120" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    <div style="flex:1;">
-                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">计算天数</label>
-                        <input type="number" id="plan-days" value="60" min="7" max="365" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <button class="btn btn-blue" onclick="calcLearnPlan()">📊 理论预测</button>
-                    <button class="btn btn-green" onclick="calcRealPlan()">📈 真实情况</button>
-                </div>
-                <div id="plan-result" style="margin-top:12px;"></div>
             </div>
         </div>
     </div>
