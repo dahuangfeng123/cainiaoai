@@ -1422,7 +1422,7 @@
         <a href="javascript:navTo('lib')">📚 单词库</a>
         <a href="javascript:navTo('exam')">📝 考试</a>
         <a href="javascript:navTo('relation')">🔗 关系查询</a>
-        <a href="../tingli/tingli2.html">🔊 听力练习</a>
+        <a href="../tingli/tingli.html">🔊 听力练习</a>
         <a href="javascript:navTo('mine')">👤 个人中心</a>
     </div>
 
@@ -1916,16 +1916,16 @@
     <div class="modal" id="learn-modal">
         <div class="modal-body" style="max-width:900px;display:flex;flex-direction:row;max-height:80vh;padding:0;">
             <span class="modal-close" onclick="closeLearnModal()">✕</span>
-            <!-- 左侧2/3：单词详情 -->
-            <div style="flex:2;overflow-y:auto;padding:24px;border-right:1px solid #eee;">
-                <div style="text-align:center;">
+            <!-- 左侧1/3：单词详情 -->
+            <div style="flex:3;display:flex;flex-direction:column;border-right:1px solid #eee;">
+                <div style="padding:24px 24px 0 24px;text-align:center;">
                     <div id="learn-word" style="font-size:32px;font-weight:bold;margin-bottom:8px;"></div>
                     <div id="learn-phonetic" style="font-size:14px;color:#666;margin-bottom:8px;"></div>
                     <div id="learn-meaning" style="font-size:20px;line-height:1.8;margin-bottom:8px;"></div>
                     <div id="learn-meta" style="font-size:13px;color:#999;margin-bottom:10px;"></div>
                 </div>
-                <div id="learn-detail" style="text-align:left;font-size:14px;line-height:1.8;color:#444;"></div>
-                <div style="border-top:1px solid #eee;padding-top:12px;margin-top:12px;">
+                <div id="learn-detail" style="flex:1;overflow-y:auto;padding:0 24px;text-align:left;font-size:14px;line-height:1.8;color:#444;"></div>
+                <div style="border-top:1px solid #eee;padding:12px 24px;flex-shrink:0;">
                     <button class="btn btn-blue" onclick="addToReview()">加入复习</button>
                     <button class="btn btn-gray" onclick="speakWord()">🔊 朗读单词</button>
                     <button class="btn btn-gray" onclick="openIciba()">📖 金山词霸</button>
