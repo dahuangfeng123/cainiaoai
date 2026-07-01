@@ -1864,6 +1864,36 @@
                     <p>关系类型：相似 / 同义词 / 同音词 / 部分同音 / 近义词 / 反义词 / 同词不同性 / 词形变化 / 比较级 / 最高级 / 序数词 / 过去式 / 过去分词</p>
                 </div>
             </div>
+            <div class="card">
+                <h2>📊 学习规划计算器</h2>
+                <p style="color:#666;font-size:13px;margin-bottom:10px;">根据艾宾浩斯遗忘曲线（1/2/4/7/15/30天），计算每日学习量对应的复习压力</p>
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">同学</label>
+                        <select id="plan-user" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                            <option value="A">同学A</option>
+                            <option value="B">同学B</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每天学习单词数</label>
+                        <input type="number" id="plan-learn-per-day" value="10" min="1" max="100" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">每词答题时间（秒）</label>
+                        <input type="number" id="plan-seconds-per-word" value="15" min="5" max="120" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px;">计算天数</label>
+                        <input type="number" id="plan-days" value="60" min="7" max="365" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-blue" onclick="calcLearnPlan()">📊 理论预测</button>
+                    <button class="btn btn-green" onclick="calcRealPlan()">📈 真实情况</button>
+                </div>
+                <div id="plan-result" style="margin-top:12px;"></div>
+            </div>
         </div>
     </div>
 
@@ -4717,6 +4747,367 @@
             }
             html += '</div>';
             document.getElementById("rel-alpha-list").innerHTML = html;
+        }
+
+        // 学习规划计算器 - 理论预测
+        function calcLearnPlan() {
+            let learnPerDay = parseInt(document.getElementById('plan-learn-per-day').value) || 10;
+            let secPerWord = parseInt(document.getElementById('plan-seconds-per-word').value) || 15;
+            let totalDays = parseInt(document.getElementById('plan-days').value) || 60;
+            // 艾宾浩斯复习周期：学习后第1/2/4/7/15/30天需复习
+            let intervals = [1, 2, 4, 7, 15, 30];
+            let examSecPerWord = 15; // 考试每题15秒（100题=1500秒）
+            let dailyLoad = [];
+            let peakReview = 0, peakDay = 0, peakTotal = 0;
+            let steadyReview = 0, steadyCount = 0;
+
+            for (let d = 0; d < totalDays; d++) {
+                let review = 0;
+                for (let interval of intervals) {
+                    let srcDay = d - interval;
+                    if (srcDay >= 0 && srcDay < totalDays) {
+                        review += learnPerDay;
+                    }
+                }
+                let total = learnPerDay + review;
+                dailyLoad.push({ day: d + 1, learn: learnPerDay, review, total });
+                if (review > peakReview) {
+                    peakReview = review;
+                    peakDay = d + 1;
+                    peakTotal = total;
+                }
+                if (d >= totalDays - 7) {
+                    steadyReview += review;
+                    steadyCount++;
+                }
+            }
+            steadyReview = steadyCount > 0 ? Math.round(steadyReview / steadyCount) : 0;
+            let steadyTotal = learnPerDay + steadyReview;
+
+            // 时间预估
+            let reviewMinutes = Math.round(steadyTotal * secPerWord / 60 * 10) / 10;
+            let peakMinutes = Math.round(peakTotal * secPerWord / 60 * 10) / 10;
+            // 考试时间：复习词数 × 15秒/题
+            let examWordCount = steadyReview;
+            let examMinutes = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
+
+            let totalColor = steadyTotal <= 30 ? '#34a853' : steadyTotal <= 60 ? '#fbbc04' : '#ea4335';
+            let peakColor = peakTotal <= 40 ? '#34a853' : peakTotal <= 80 ? '#fbbc04' : '#ea4335';
+
+            let advice = '';
+            if (steadyTotal <= 20) {
+                advice = '🟢 轻松模式：每日任务量少，适合初学者或时间有限的情况';
+            } else if (steadyTotal <= 35) {
+                advice = '🟢 推荐模式：每日任务量适中，学习与复习平衡良好';
+            } else if (steadyTotal <= 50) {
+                advice = '🟡 中等强度：复习压力较大，需确保每日有足够时间';
+            } else if (steadyTotal <= 70) {
+                advice = '🟠 高强度：复习压力很大，容易产生厌倦，建议降低学习量';
+            } else {
+                advice = '🔴 超高强度：复习压力极大，极易放弃，强烈建议降低学习量';
+            }
+
+            let bestLearn = learnPerDay;
+            for (let x = learnPerDay; x >= 3; x--) {
+                let sr = 0;
+                for (let interval of intervals) sr += x;
+                if (x + sr <= 35) { bestLearn = x; break; }
+            }
+
+            let html = '';
+            // 稳定期概况
+            html += `<div style="background:#f0f7ff;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">📈 稳定期（第${intervals[intervals.length-1]+1}天后）每日概况</div>`;
+            html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">每日新学</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#4285f4;">${learnPerDay}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">每日复习</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#fbbc04;">${steadyReview}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">每日总任务</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:${totalColor};">${steadyTotal}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">复习+学习耗时</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#34a853;">${reviewMinutes}分</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">考试耗时（${examWordCount}题）</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#845ec2;">${examMinutes}分</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">每日总耗时</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#ea4335;">${Math.round((reviewMinutes + examMinutes)*10)/10}分</div>`;
+            html += `</div>`;
+            html += `</div></div>`;
+
+            html += `<div style="background:#fff8e1;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:6px;">⚡ 峰值压力（第${peakDay}天）</div>`;
+            html += `<div style="color:${peakColor};font-size:14px;">复习 ${peakReview} 个 + 新学 ${learnPerDay} 个 = 总计 ${peakTotal} 个，约 ${peakMinutes} 分钟</div>`;
+            html += `</div>`;
+
+            html += `<div style="background:#e8f5e9;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:6px;">💡 建议</div>`;
+            html += `<div style="font-size:14px;line-height:1.8;">${advice}`;
+            if (bestLearn !== learnPerDay) {
+                html += `<br>推荐调整为每天 <b style="color:#4285f4;">${bestLearn}</b> 个，稳定期每日总任务约 ${bestLearn + bestLearn * intervals.length} 个`;
+            }
+            html += `</div></div>`;
+
+            // 每日任务趋势表
+            html += `<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">📅 每日任务趋势</div>`;
+            html += `<div style="overflow-y:auto;max-height:400px;">`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+            html += `<tr style="background:#f5f5f5;position:sticky;top:0;"><th style="padding:6px;border:1px solid #eee;">天数</th><th style="padding:6px;border:1px solid #eee;">新学</th><th style="padding:6px;border:1px solid #eee;">复习</th><th style="padding:6px;border:1px solid #eee;">总计</th><th style="padding:6px;border:1px solid #eee;">学习+复习</th><th style="padding:6px;border:1px solid #eee;">考试</th><th style="padding:6px;border:1px solid #eee;">总耗时</th></tr>`;
+            for (let d = 0; d < totalDays; d++) {
+                let row = dailyLoad[d];
+                let tc = row.total <= 30 ? '#34a853' : row.total <= 60 ? '#fbbc04' : '#ea4335';
+                let lrMin = Math.round(row.total * secPerWord / 60 * 10) / 10;
+                let exMin = Math.round(row.review * examSecPerWord / 60 * 10) / 10;
+                let totMin = Math.round((lrMin + exMin)*10)/10;
+                html += `<tr>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">第${row.day}天</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">${row.learn}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">${row.review}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:${tc};font-weight:bold;">${row.total}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">${lrMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">${exMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;font-weight:bold;">${totMin}分</td>`;
+                html += `</tr>`;
+            }
+            html += `</table></div>`;
+
+            document.getElementById('plan-result').innerHTML = html;
+        }
+
+        // 学习规划计算器 - 真实情况
+        function calcRealPlan() {
+            let planUser = document.getElementById('plan-user').value;
+            let secPerWord = parseInt(document.getElementById('plan-seconds-per-word').value) || 15;
+            let examSecPerWord = 15; // 考试每题15秒
+            let u = safeUser(JSON.parse(localStorage.getItem('wuser' + planUser) || 'null'));
+            let learn = u.learn || [];
+            let log = u.log || {};
+            let skilled = u.skilled || [];
+            let dailyLog = u.dailyLog || {};
+            let totalWords = getWords().length;
+
+            // 统计各周期分布
+            let periodDist = {};
+            let PERIOD_arr = [0, 1, 2, 4, 7, 15, 30];
+            let periodLabels = ['未复习', '第1轮', '第2轮', '第3轮', '第4轮', '第5轮', '第6轮', '已毕业'];
+            for (let i = 0; i <= PERIOD_arr.length; i++) periodDist[i] = 0;
+            for (let idx of learn) {
+                let l = log[idx];
+                if (!l) { periodDist[0]++; continue; }
+                if (l.c >= PERIOD_arr.length) { periodDist[PERIOD_arr.length]++; continue; }
+                periodDist[l.c]++;
+            }
+
+            // 计算今天/明天需要复习的单词（与getTodayTasks逻辑一致）
+            let now = Date.now();
+            let todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            let todayEndTs = todayStart.getTime() + 86400000; // 明天0点
+            let tomorrowEndTs = todayStart.getTime() + 86400000 * 2; // 后天0点
+            let dueToday = 0, dueTomorrow = 0;
+            // 按轮次统计今日待复习
+            let dueTodayByRound = {}; // round -> count
+            let done = u.done || [];
+            for (let idx of learn) {
+                let l = log[idx];
+                if (!l || !l.next) continue;
+                if (done.includes(idx) || l.c >= PERIOD_arr.length || skilled.includes(idx)) continue;
+                if (l.next <= todayEndTs) {
+                    dueToday++;
+                    let round = l.c;
+                    dueTodayByRound[round] = (dueTodayByRound[round] || 0) + 1;
+                } else if (l.next <= tomorrowEndTs) {
+                    dueTomorrow++;
+                }
+            }
+
+            // 最近7天每日学习/复习统计
+            let recentDays = [];
+            let dayNames = ['日','一','二','三','四','五','六'];
+            for (let i = 6; i >= 0; i--) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                let key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                let dl = dailyLog[key] || { learn: 0, review: 0 };
+                recentDays.push({
+                    date: `${d.getMonth()+1}/${d.getDate()}`,
+                    dayName: '周' + dayNames[d.getDay()],
+                    learn: dl.learn || 0,
+                    review: dl.review || 0
+                });
+            }
+
+            // 未来7天复习量预测（基于真实log数据）
+            let futureDays = [];
+            for (let i = 0; i < 7; i++) {
+                let d = new Date();
+                d.setDate(d.getDate() + i + 1);
+                d.setHours(0, 0, 0, 0);
+                let dayStartTs = d.getTime();
+                let dayEndTs = dayStartTs + 86400000;
+                let reviewCount = 0;
+                let roundDist = {}; // 按轮次统计
+                for (let idx of learn) {
+                    let l = log[idx];
+                    if (!l || !l.next) continue;
+                    if (done.includes(idx) || l.c >= PERIOD_arr.length || skilled.includes(idx)) continue;
+                    if (l.next >= dayStartTs && l.next < dayEndTs) {
+                        reviewCount++;
+                        roundDist[l.c] = (roundDist[l.c] || 0) + 1;
+                    }
+                }
+                futureDays.push({
+                    date: `${d.getMonth()+1}/${d.getDate()}`,
+                    dayName: '周' + dayNames[d.getDay()],
+                    review: reviewCount,
+                    roundDist: roundDist
+                });
+            }
+
+            // 时间预估
+            let todayTotal = dueToday;
+            let todayLearnMin = Math.round(todayTotal * secPerWord / 60 * 10) / 10;
+            let todayExamMin = Math.round(todayTotal * examSecPerWord / 60 * 10) / 10;
+            let todayAllMin = Math.round((todayLearnMin + todayExamMin)*10)/10;
+
+            let html = '';
+
+            // 概况
+            html += `<div style="background:#f0f7ff;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">📈 ${planUser}同学 当前学习概况</div>`;
+            html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">词库总量</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#4285f4;">${totalWords}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">已学习</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#34a853;">${learn.length}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">已毕业</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#845ec2;">${skilled.length}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">未学习</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#999;">${totalWords - learn.length - skilled.length}</div>`;
+            html += `</div>`;
+            html += `</div></div>`;
+
+            // 今日任务
+            let todayColor = todayTotal <= 30 ? '#34a853' : todayTotal <= 60 ? '#fbbc04' : '#ea4335';
+            html += `<div style="background:#fff8e1;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">⚡ 今日待复习</div>`;
+            html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">待复习单词</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:${todayColor};">${dueToday}</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">复习+学习耗时</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#34a853;">${todayLearnMin}分</div>`;
+            html += `</div>`;
+            html += `<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;">`;
+            html += `<div style="font-size:12px;color:#999;">含考试总耗时</div>`;
+            html += `<div style="font-size:20px;font-weight:bold;color:#ea4335;">${todayAllMin}分</div>`;
+            html += `</div>`;
+            html += `</div>`;
+            // 按轮次分拆今日待复习
+            if (Object.keys(dueTodayByRound).length > 0) {
+                html += `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">`;
+                let roundLabels = {1:'第1轮',2:'第2轮',3:'第3轮',4:'第4轮',5:'第5轮',6:'第6轮'};
+                let roundColors = {1:'#ea4335',2:'#fbbc04',3:'#4285f4',4:'#4285f4',5:'#34a853',6:'#34a853'};
+                let sortedRounds = Object.keys(dueTodayByRound).map(Number).sort((a,b) => a-b);
+                for (let r of sortedRounds) {
+                    let c = roundColors[r] || '#999';
+                    let label = roundLabels[r] || `第${r}轮`;
+                    html += `<span style="display:inline-block;padding:4px 10px;background:#fff;border:1px solid ${c}33;border-radius:12px;font-size:12px;color:${c};">${label}: ${dueTodayByRound[r]}个</span>`;
+                }
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            // 复习周期分布
+            html += `<div style="background:#f3e8ff;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">🔄 复习周期分布（${learn.length}个已学单词）</div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+            for (let i = 0; i <= PERIOD_arr.length; i++) {
+                if (periodDist[i] === 0 && i > 0) continue;
+                let colors = ['#ea4335','#fbbc04','#fbbc04','#4285f4','#4285f4','#34a853','#34a853','#845ec2'];
+                let c = colors[i] || '#999';
+                html += `<div style="background:#fff;border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">`;
+                html += `<div style="font-size:11px;color:#999;">${periodLabels[i]}</div>`;
+                html += `<div style="font-size:18px;font-weight:bold;color:${c};">${periodDist[i]}</div>`;
+                if (learn.length > 0) {
+                    html += `<div style="font-size:10px;color:#bbb;">${Math.round(periodDist[i]/learn.length*100)}%</div>`;
+                }
+                html += `</div>`;
+            }
+            html += `</div></div>`;
+
+            // 最近7天实际学习
+            html += `<div style="background:#e8f5e9;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">📊 最近7天实际学习/复习</div>`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+            html += `<tr style="background:#d7eed7;"><th style="padding:6px;border:1px solid #c8e6c9;">日期</th><th style="padding:6px;border:1px solid #c8e6c9;">星期</th><th style="padding:6px;border:1px solid #c8e6c9;">新学</th><th style="padding:6px;border:1px solid #c8e6c9;">复习</th><th style="padding:6px;border:1px solid #c8e6c9;">学习耗时</th><th style="padding:6px;border:1px solid #c8e6c9;">考试耗时</th><th style="padding:6px;border:1px solid #c8e6c9;">总耗时</th></tr>`;
+            for (let rd of recentDays) {
+                let total = rd.learn + rd.review;
+                let lrMin = Math.round(total * secPerWord / 60 * 10) / 10;
+                let exMin = Math.round(rd.review * examSecPerWord / 60 * 10) / 10;
+                html += `<tr>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;">${rd.date}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;">${rd.dayName}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;color:#4285f4;font-weight:bold;">${rd.learn}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;color:#fbbc04;font-weight:bold;">${rd.review}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;">${lrMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;">${exMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #c8e6c9;text-align:center;font-weight:bold;">${Math.round((lrMin+exMin)*10)/10}分</td>`;
+                html += `</tr>`;
+            }
+            html += `</table></div>`;
+
+            // 未来7天复习预测
+            html += `<div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:10px;">`;
+            html += `<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">📅 未来7天复习预测（基于真实复习计划）</div>`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+            html += `<tr style="background:#bbdefb;"><th style="padding:6px;border:1px solid #90caf9;">日期</th><th style="padding:6px;border:1px solid #90caf9;">星期</th><th style="padding:6px;border:1px solid #90caf9;">待复习</th><th style="padding:6px;border:1px solid #90caf9;">轮次分布</th><th style="padding:6px;border:1px solid #90caf9;">复习耗时</th><th style="padding:6px;border:1px solid #90caf9;">考试耗时</th><th style="padding:6px;border:1px solid #90caf9;">总耗时</th></tr>`;
+            let roundLabelsMap = {1:'第1轮',2:'第2轮',3:'第3轮',4:'第4轮',5:'第5轮',6:'第6轮'};
+            for (let fd of futureDays) {
+                let tc = fd.review <= 30 ? '#34a853' : fd.review <= 60 ? '#fbbc04' : '#ea4335';
+                let lrMin = Math.round(fd.review * secPerWord / 60 * 10) / 10;
+                let exMin = Math.round(fd.review * examSecPerWord / 60 * 10) / 10;
+                // 轮次分布
+                let roundHtml = '';
+                if (fd.roundDist && Object.keys(fd.roundDist).length > 0) {
+                    let parts = [];
+                    for (let r of Object.keys(fd.roundDist).map(Number).sort((a,b)=>a-b)) {
+                        parts.push(`${roundLabelsMap[r]||'第'+r+'轮'}:${fd.roundDist[r]}`);
+                    }
+                    roundHtml = parts.join(' ');
+                }
+                html += `<tr>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;">${fd.date}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;">${fd.dayName}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;color:${tc};font-weight:bold;">${fd.review}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;font-size:11px;">${roundHtml}</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;">${lrMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;">${exMin}分</td>`;
+                html += `<td style="padding:4px 6px;border:1px solid #90caf9;text-align:center;font-weight:bold;">${Math.round((lrMin+exMin)*10)/10}分</td>`;
+                html += `</tr>`;
+            }
+            html += `</table></div>`;
+
+            document.getElementById('plan-result').innerHTML = html;
         }
 
         function uploadWordsFile(event) {
