@@ -1912,28 +1912,28 @@
         </div>
     </div>
 
-    <!-- 学习展示弹窗 -->
-    <div class="modal" id="learn-modal">
+    <!-- 学习展示弹窗（模板，由JS动态克隆创建） -->
+    <div id="learn-modal-tpl" style="display:none;">
         <div class="modal-body" style="max-width:900px;display:flex;flex-direction:row;max-height:80vh;padding:0;">
-            <span class="modal-close" onclick="closeLearnModal()">✕</span>
-            <!-- 左侧1/3：单词详情 -->
+            <span class="modal-close" onclick="closeLearnModal(this)">✕</span>
+            <!-- 左侧2/3：单词详情 -->
             <div style="flex:3;display:flex;flex-direction:column;border-right:1px solid #eee;">
                 <div style="padding:24px 24px 0 24px;text-align:center;">
-                    <div id="learn-word" style="font-size:32px;font-weight:bold;margin-bottom:8px;"></div>
-                    <div id="learn-phonetic" style="font-size:14px;color:#666;margin-bottom:8px;"></div>
-                    <div id="learn-meaning" style="font-size:20px;line-height:1.8;margin-bottom:8px;"></div>
-                    <div id="learn-meta" style="font-size:13px;color:#999;margin-bottom:10px;"></div>
+                    <div class="lm-word" style="font-size:32px;font-weight:bold;margin-bottom:8px;"></div>
+                    <div class="lm-phonetic" style="font-size:14px;color:#666;margin-bottom:8px;"></div>
+                    <div class="lm-meaning" style="font-size:20px;line-height:1.8;margin-bottom:8px;"></div>
+                    <div class="lm-meta" style="font-size:13px;color:#999;margin-bottom:10px;"></div>
                 </div>
-                <div id="learn-detail" style="flex:1;overflow-y:auto;padding:0 24px;text-align:left;font-size:14px;line-height:1.8;color:#444;"></div>
+                <div class="lm-detail" style="flex:1;overflow-y:auto;padding:0 24px;text-align:left;font-size:14px;line-height:1.8;color:#444;"></div>
                 <div style="border-top:1px solid #eee;padding:12px 24px;flex-shrink:0;">
-                    <button class="btn btn-blue" onclick="addToReview()">加入复习</button>
-                    <button class="btn btn-gray" onclick="speakWord()">🔊 朗读单词</button>
-                    <button class="btn btn-gray" onclick="openIciba()">📖 金山词霸</button>
+                    <button class="btn btn-blue" onclick="addToReviewInModal(this)">加入复习</button>
+                    <button class="btn btn-gray" onclick="speakWordInModal(this)">🔊 朗读单词</button>
+                    <button class="btn btn-gray" onclick="openIcibaInModal(this)">📖 金山词霸</button>
                 </div>
             </div>
             <!-- 右侧1/3：关系词 -->
             <div style="flex:1;overflow-y:auto;padding:16px;background:#f8f9fa;">
-                <div id="learn-relations" style="font-size:13px;color:#666;"></div>
+                <div class="lm-relations" style="font-size:13px;color:#666;"></div>
             </div>
         </div>
     </div>
@@ -3288,23 +3288,220 @@
 
         let dictCache = {};
         let transCache = {};
+        let learnModalStack = []; // 弹窗栈，支持叠加显示
+        let learnModalZIndex = 1000; // 弹窗z-index起始值
 
         function openLearnModal(idx) {
             let w = getWords()[idx];
-            learnIdx = idx;
-            document.getElementById("learn-word").innerText = w.word;
-            document.getElementById("learn-meaning").innerText = w.meaning;
+            // 克隆模板创建新弹窗
+            let tpl = document.getElementById('learn-modal-tpl');
+            let modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = tpl.innerHTML;
+            modal.style.display = 'flex';
+            modal.style.zIndex = ++learnModalZIndex;
+            // 存储当前单词idx
+            modal.dataset.idx = idx;
+            modal.dataset.word = w.word;
+            document.body.appendChild(modal);
+
+            // 填充数据
+            modal.querySelector('.lm-word').innerText = w.word;
+            modal.querySelector('.lm-meaning').innerText = w.meaning;
             let examHtml = w.exam.split(" ").map(t => EXAM_LABELS[t] || t).join("、");
-            document.getElementById("learn-meta").innerHTML = `柯林斯 ${"★".repeat(w.collins)} | ${examHtml}`;
-            document.getElementById("learn-detail").innerHTML = '<span style="color:#999;">加载例句中...</span>';
-            document.getElementById("learn-modal").style.display = "flex";
-            fetchDict(w.word);
-            renderLearnRelations(w.word);
+            modal.querySelector('.lm-meta').innerHTML = `柯林斯 ${"★".repeat(w.collins)} | ${examHtml}`;
+            modal.querySelector('.lm-detail').innerHTML = '<span style="color:#999;">加载例句中...</span>';
+
+            // 入栈
+            learnModalStack.push(modal);
+            learnIdx = idx;
+
+            // 加载词典和关系词
+            fetchDictForModal(w.word, modal);
+            renderLearnRelationsForModal(w.word, modal);
         }
 
-        // 渲染学习弹窗右侧的关系词
-        function renderLearnRelations(word) {
-            let el = document.getElementById("learn-relations");
+        function closeLearnModal(closeBtn) {
+            // 从关闭按钮找到所属弹窗
+            let modal = closeBtn.closest('.modal');
+            if (!modal) return;
+            // 从栈中移除
+            let stackIdx = learnModalStack.indexOf(modal);
+            if (stackIdx !== -1) learnModalStack.splice(stackIdx, 1);
+            // 移除DOM
+            modal.remove();
+            // 恢复栈顶弹窗的learnIdx
+            if (learnModalStack.length > 0) {
+                let top = learnModalStack[learnModalStack.length - 1];
+                learnIdx = parseInt(top.dataset.idx);
+            } else {
+                learnIdx = null;
+                learnAudioUrl = "";
+            }
+        }
+
+        // 获取弹窗所属的word
+        function getModalWord(el) {
+            let modal = el.closest('.modal');
+            return modal ? modal.dataset.word : null;
+        }
+        function getModalIdx(el) {
+            let modal = el.closest('.modal');
+            return modal ? parseInt(modal.dataset.idx) : null;
+        }
+
+        function addToReviewInModal(btn) {
+            let idx = getModalIdx(btn);
+            if (idx === null) return;
+            let u = safeUser(getUser());
+            if (u.skilled && u.skilled.includes(idx)) { toast('该单词已标记为熟练', 'warning'); closeLearnModal(btn); return; }
+            let now = Date.now();
+            let todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            let today = todayKey();
+            if (!u.learn.includes(idx)) {
+                u.learn.push(idx);
+                let nextTs = nextDate(now, 1);
+                u.log[idx] = { t: now, c: 1, next: nextTs };
+                setUser(u);
+                recordDaily('learn');
+                u = safeUser(getUser());
+                
+                let todayLearn = (u.dailyLog[today]?.learn || 0);
+                let tc = myTaskConfig();
+                let todayMilestone = Math.floor(todayLearn / tc.learnTarget);
+                let lastTodayMilestone = u.lastTodayMilestone || {};
+                if (todayMilestone > (lastTodayMilestone[today] || 0)) {
+                    if (!u.lastTodayMilestone) u.lastTodayMilestone = {};
+                    u.lastTodayMilestone[today] = todayMilestone;
+                    setUser(u);
+                    addStars(tc.learnReward, '今天学习' + (todayMilestone * tc.learnTarget) + '个单词！');
+                }
+            }
+            closeLearnModal(btn);
+            renderAll();
+            checkCheckin();
+        }
+
+        function openIcibaInModal(btn) {
+            let word = getModalWord(btn);
+            if (!word) return;
+            window.open('https://www.iciba.com/word?w=' + encodeURIComponent(word), '_blank');
+        }
+
+        function speakWordInModal(btn) {
+            let word = getModalWord(btn);
+            if (!word) return;
+            // 优先用缓存的音频URL
+            if (dictCache[word] && dictCache[word][0] && dictCache[word][0].phonetics) {
+                for (let p of dictCache[word][0].phonetics) {
+                    if (p.audio) { new Audio(p.audio).play(); return; }
+                }
+            }
+            speak(word);
+        }
+
+        // 为指定弹窗加载词典
+        function fetchDictForModal(word, modal) {
+            if (dictCache[word]) {
+                renderDictForModal(dictCache[word], modal);
+                return;
+            }
+            fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word))
+                .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+                .then(data => {
+                    dictCache[word] = data;
+                    if (modal.isConnected) renderDictForModal(data, modal);
+                })
+                .catch(() => {
+                    if (modal.isConnected) {
+                        modal.querySelector('.lm-detail').innerHTML = '<span style="color:#ccc;">暂无在线例句</span>';
+                    }
+                });
+        }
+
+        // 为指定弹窗渲染词典数据
+        function renderDictForModal(data, modal) {
+            if (!data || !data[0] || !data[0].meanings) {
+                modal.querySelector('.lm-detail').innerHTML = '<span style="color:#ccc;">暂无在线例句</span>';
+                return;
+            }
+            let phonetic = "";
+            let audioUrl = "";
+            if (data[0].phonetics) {
+                for (let p of data[0].phonetics) {
+                    if (p.text && !phonetic) phonetic = p.text;
+                    if (p.audio && !audioUrl) audioUrl = p.audio;
+                }
+            }
+            if (phonetic) {
+                modal.querySelector('.lm-phonetic').innerText = phonetic;
+            }
+            if (audioUrl) {
+                modal.dataset.audioUrl = audioUrl;
+            }
+            let word = data[0].word.toLowerCase();
+            let html = "";
+            let transIdx = 0;
+            let transQueue = [];
+            let u = safeUser(getUser());
+            data[0].meanings.forEach(m => {
+                html += `<div style="margin-bottom:10px;">`;
+                html += `<div class="theme-purple" style="color:#845ec2;font-weight:bold;margin-bottom:4px;">${m.partOfSpeech}</div>`;
+                m.definitions.slice(0, 3).forEach((d, i) => {
+                    html += `<div style="margin-bottom:6px;padding-left:8px;">`;
+                    html += `<div>${i + 1}. ${d.definition}`;
+                    if (u.translate) {
+                        html += `<span id="trans-${word}-${transIdx}" style="color:#999;font-size:12px;margin-left:4px;"></span>`;
+                        transQueue.push({ text: d.definition, idx: transIdx, word: word });
+                    }
+                    html += `</div>`;
+                    transIdx++;
+                    if (d.example) {
+                        let highlighted = highlightWord(d.example, word);
+                        html += `<div style="color:#888;font-style:italic;padding-left:12px;align-items:center;gap:6px;">"${highlighted}"<span class="speak-example" style="cursor:pointer;font-style:normal;font-size:16px;" onclick="speakExample(this)" data-text="${escAttr(d.example)}">🔊</span></div>`;
+                    }
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            });
+            modal.querySelector('.lm-detail').innerHTML = html || '<span style="color:#ccc;">暂无在线例句</span>';
+            if (u.translate && transQueue.length > 0) {
+                transQueue.forEach(item => translateDefForModal(item.text, item.idx, item.word, modal));
+            }
+        }
+
+        // 为指定弹窗翻译释义
+        function translateDefForModal(text, idx, word, modal) {
+            let u = safeUser(getUser());
+            if (!u.translate) return;
+            let cacheKey = text;
+            if (transCache[cacheKey]) {
+                let el = document.getElementById(`trans-${word}-${idx}`);
+                if (el) el.innerText = transCache[cacheKey];
+                return;
+            }
+            let apiKey = u.translateApiKey || '';
+            let apiBase = u.translateApiBase || 'https://translation.googleapis.com';
+            fetch(apiBase + '/language/translate/v2?key=' + apiKey, {
+                method: 'POST',
+                body: JSON.stringify({ q: text, source: 'en', target: 'zh', format: 'text' })
+            })
+            .then(r => r.json())
+            .then(d => {
+                let t = d.data && d.data.translations && d.data.translations[0] && d.data.translations[0].translatedText;
+                if (t) {
+                    transCache[cacheKey] = t;
+                    let el = document.getElementById(`trans-${word}-${idx}`);
+                    if (el) el.innerText = t;
+                }
+            })
+            .catch(() => {});
+        }
+
+        // 为指定弹窗渲染关系词
+        function renderLearnRelationsForModal(word, modal) {
+            let el = modal.querySelector('.lm-relations');
             let key = word.toLowerCase();
             if (!relIndex.has(key)) {
                 el.innerHTML = '<div style="color:#bbb;text-align:center;padding:20px;">暂无关系词数据</div>';
@@ -3319,6 +3516,8 @@
                 list.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
                 totalRels += list.length;
                 let color = REL_TYPE_COLORS[type] || '#666';
+                // 判断该类型是否可点击跳转（近义词、同义词、反义词、同音词）
+                let clickable = ['近义词','同义词','反义词','同音词'].includes(type);
                 html += `<div style="margin-bottom:10px;">`;
                 html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">`;
                 html += `<span style="display:inline-block;width:3px;height:14px;background:${color};border-radius:2px;"></span>`;
@@ -3333,7 +3532,11 @@
                     if (type === '同词不同性' && t.includes('|')) {
                         display = t.split('|').join(' / ');
                     }
-                    html += `<span style="display:inline-block;padding:3px 8px;background:#fff;border:1px solid ${color}33;border-radius:12px;cursor:default;font-size:12px;color:${color};" title="${tip}">${display}</span>`;
+                    if (clickable && tInfo) {
+                        html += `<span style="display:inline-block;padding:3px 8px;background:#fff;border:1px solid ${color}33;border-radius:12px;cursor:pointer;font-size:12px;color:${color};" title="${tip} → 点击查看" onclick="openLearnModalByWord('${t.replace(/'/g, "\\'")}')">${display}</span>`;
+                    } else {
+                        html += `<span style="display:inline-block;padding:3px 8px;background:#fff;border:1px solid ${color}33;border-radius:12px;cursor:default;font-size:12px;color:${color};" title="${tip}">${display}</span>`;
+                    }
                 }
                 html += `</div></div>`;
             }
@@ -3343,77 +3546,17 @@
             el.innerHTML = html;
         }
 
-        function fetchDict(word) {
-            if (dictCache[word]) {
-                renderDict(dictCache[word]);
+        // 通过单词文本打开学习弹窗（关系词点击用）
+        function openLearnModalByWord(word) {
+            let key = word.toLowerCase();
+            // 如果是"同词不同性"格式 word|pos，取前面的word
+            let baseWord = key.split('|')[0].trim();
+            let idx = getWords().findIndex(w => w.word.toLowerCase() === baseWord);
+            if (idx === -1) {
+                toast('词库中未找到: ' + word, 'warning');
                 return;
             }
-            fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word))
-                .then(res => {
-                    if (!res.ok) throw new Error();
-                    return res.json();
-                })
-                .then(data => {
-                    dictCache[word] = data;
-                    if (learnIdx !== null && getWords()[learnIdx].word === word) {
-                        renderDict(data);
-                    }
-                })
-                .catch(() => {
-                    if (learnIdx !== null && getWords()[learnIdx].word === word) {
-                        document.getElementById("learn-detail").innerHTML = '<span style="color:#ccc;">暂无在线例句</span>';
-                    }
-                });
-        }
-
-        function renderDict(data) {
-            if (!data || !data[0] || !data[0].meanings) {
-                document.getElementById("learn-detail").innerHTML = '<span style="color:#ccc;">暂无在线例句</span>';
-                return;
-            }
-            let phonetic = "";
-            let audioUrl = "";
-            if (data[0].phonetics) {
-                for (let p of data[0].phonetics) {
-                    if (p.text && !phonetic) phonetic = p.text;
-                    if (p.audio && !audioUrl) audioUrl = p.audio;
-                }
-            }
-            if (phonetic) {
-                document.getElementById("learn-phonetic").innerText = phonetic;
-            }
-            if (audioUrl) {
-                learnAudioUrl = audioUrl;
-            }
-            let word = data[0].word.toLowerCase();
-            let html = "";
-            let transIdx = 0;
-            let transQueue = [];
-            let u = safeUser(getUser());
-            data[0].meanings.forEach(m => {
-                html += `<div style="margin-bottom:10px;">`;
-                html += `<div class="theme-purple" style="color:#845ec2;font-weight:bold;margin-bottom:4px;">${m.partOfSpeech}</div>`;
-                m.definitions.slice(0, 3).forEach((d, i) => {
-                    html += `<div style="margin-bottom:6px;padding-left:8px;">`;
-                    html += `<div>${i + 1}. ${d.definition}`;
-                    if (u.translate) {
-                        html += `<span id="trans-${transIdx}" style="color:#999;font-size:12px;margin-left:4px;"></span>`;
-                        transQueue.push({ text: d.definition, idx: transIdx });
-                    }
-                    html += `</div>`;
-                    transIdx++;
-                    if (d.example) {
-                        let highlighted = highlightWord(d.example, word);
-                        html += `<div style="color:#888;font-style:italic;padding-left:12px;align-items:center;gap:6px;">"${highlighted}"<span class="speak-example" style="cursor:pointer;font-style:normal;font-size:16px;" onclick="speakExample(this)" data-text="${escAttr(d.example)}">🔊</span></div>`;
-                    }
-                    html += `</div>`;
-                });
-                html += `</div>`;
-            });
-            document.getElementById("learn-detail").innerHTML = html || '<span style="color:#ccc;">暂无在线例句</span>';
-            if (u.translate && transQueue.length > 0) {
-                transQueue.forEach(item => translateDef(item.text, item.idx));
-            }
+            openLearnModal(idx);
         }
 
         let transQueue = [];
@@ -3493,59 +3636,6 @@
             utter.lang = 'en-US';
             utter.rate = 0.8;
             speechSynthesis.speak(utter);
-        }
-
-        function closeLearnModal() {
-            document.getElementById("learn-modal").style.display = "none";
-            learnIdx = null;
-            learnAudioUrl = "";
-        }
-
-        function addToReview() {
-            let idx = learnIdx;
-            if (idx === null) return;
-            let u = safeUser(getUser());
-            if (u.skilled && u.skilled.includes(idx)) { toast('该单词已标记为熟练', 'warning'); closeLearnModal(); return; }
-            let now = Date.now();
-            let todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            let today = todayKey();
-            if (!u.learn.includes(idx)) {
-                u.learn.push(idx);
-                let nextTs = nextDate(now, 1);
-                u.log[idx] = { t: now, c: 1, next: nextTs };
-                setUser(u);
-                recordDaily('learn');
-                u = safeUser(getUser());
-                
-                let todayLearn = (u.dailyLog[today]?.learn || 0);
-                let tc = myTaskConfig();
-                let todayMilestone = Math.floor(todayLearn / tc.learnTarget);
-                let lastTodayMilestone = u.lastTodayMilestone || {};
-                if (todayMilestone > (lastTodayMilestone[today] || 0)) {
-                    if (!u.lastTodayMilestone) u.lastTodayMilestone = {};
-                    u.lastTodayMilestone[today] = todayMilestone;
-                    setUser(u);
-                    addStars(tc.learnReward, '今天学习' + (todayMilestone * tc.learnTarget) + '个单词！');
-                }
-            }
-            closeLearnModal();
-            renderAll();
-            checkCheckin(); // 学习完成后检查打卡
-        }
-
-        function openIciba() {
-            if (learnIdx === null) return;
-            let word = ALL_WORDS[learnIdx].word;
-            window.open('https://www.iciba.com/word?w=' + encodeURIComponent(word), '_blank');
-        }
-        function speakWord() {
-            if (learnIdx === null) return;
-            if (learnAudioUrl) {
-                new Audio(learnAudioUrl).play();
-                return;
-            }
-            speak(getWords()[learnIdx].word);
         }
 
         function speakWordBy(idx) {
