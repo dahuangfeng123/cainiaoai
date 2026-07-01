@@ -45,7 +45,7 @@ function stripPosTag(s) {
 }
 
 function cleanText(s) {
-    return s.replace(/[…...·.、，,；;]/g, '').replace(/\s+/g, '');
+    return s.replace(/\[([^\]]+)\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').replace(/[…...·.、，,；;]/g, '').replace(/\s+/g, '');
 }
 
 function charSetSim(a, b) {
@@ -118,7 +118,7 @@ function checkAnswer(answer, meaning) {
             // 检查单字是否是多词词义中的一个词（如"朕，寡人"中的"朕"）
             // 在清理文本之前先提取，因为cleanText会去掉逗号
             let originalS = stripPosTag(s);
-            let wordsPart = originalS.replace(/[（(][^）)]*[）)]/g, '').replace(/^\[[^\]]+\]/g, '').trim();
+            let wordsPart = originalS.replace(/[（(][^）)]*[）)]/g, '').replace(/\[[^\]]+\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').trim();
             const wordsInMeaning = wordsPart.split(/[，,、]/).map(w => w.trim()).filter(w => w);
             const cleanWords = wordsInMeaning.map(w => cleanText(w));
             if (cleanWords.includes(cleanAns)) {
@@ -149,7 +149,7 @@ function checkAnswer(answer, meaning) {
         const bracketMatch = s.match(/（([^）]+)）|\(([^)]+)\)/);
         if (bracketMatch) meanings.push(bracketMatch[1] || bracketMatch[2]);
         
-        const cleaned = s.replace(/[（(][^）)]*[）)]/g, '').trim();
+        const cleaned = s.replace(/[（(][^）)]*[）)]/g, '').replace(/\[[^\]]+\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').trim();
         if (cleaned) meanings.push(cleaned);
     }
     
@@ -345,12 +345,51 @@ console.log('单词: on');
 console.log('词义: 向前地；继续着；作用中，行动中;adj.开着的，接通的;prep.在…上');
 console.log('');
 
-['向前地', '开着的', '继续着', '作用中', '行动中', '接通的', '在…上'].forEach(ans => {
+['向前地', '开着的', '继续着', '作用中', '行动中', '接通的', '在…上', '在上', '在', '上'].forEach(ans => {
     const result = checkAnswer(ans, '向前地；继续着；作用中，行动中;adj.开着的，接通的;prep.在…上');
     console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
 });
 console.log('--------------------------------------');
 var ans = '某一';
 var result = checkAnswer(ans, 'adj. 一些；大约；某一');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '是';
+var result = checkAnswer(ans, 'adv. [口]是');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '爸爸';
+var result = checkAnswer(ans, 'n. [口]爸爸');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+var ans = '咳嗽';
+var result = checkAnswer(ans, 'vt. 咆哮；吠叫；[口]咳嗽');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '咆哮';
+var result = checkAnswer(ans, 'vt. 咆哮；吠叫；[口]咳嗽');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '奥斯卡';
+var result = checkAnswer(ans, 'n. （美）奥斯卡金像奖；[澳口]钱；奥斯卡（男子名）');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '认为';
+var result = checkAnswer(ans, 'vt. 猜测；推测；猜中；[美口]认为');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '出埃及记';
+var result = checkAnswer(ans, 'n. 《出埃及记》（《圣经》第二卷）');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '迷幻药';
+var result = checkAnswer(ans, 'n. 酸；<俚>迷幻药');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '处境';
+var result = checkAnswer(ans, 'adj. 固执的；<美口>处境...的；准备好的；确定的');
+console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
+console.log('--------------------------------------');
+var ans = '爱吹牛的人';
+var result = checkAnswer(ans, 'n. 鼓风机，吹风机；吹制工；<俚>爱吹牛的人');
 console.log('答案 "' + ans + '": ' + (result.correct ? '✅ 正确' : '❌ 错误') + ' (' + (result.score * 100).toFixed(1) + '%)');
 //node test_single_char.js

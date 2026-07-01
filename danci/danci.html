@@ -4773,7 +4773,7 @@
             if (currentMode === 1) {
                 // 清理文本函数
                 function cleanText(s) {
-                    return s.replace(/[…...·.、，,；;]/g, '').replace(/\s+/g, '');
+                    return s.replace(/\[([^\]]+)\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').replace(/[…...·.、，,；;]/g, '').replace(/\s+/g, '');
                 }
                 
                 // 检查答案是否合理扩展了词义
@@ -4828,7 +4828,7 @@
                         // 检查单字是否是多词词义中的一个词（如"朕，寡人"中的"朕"）
                         // 在清理文本之前先提取，因为cleanText会去掉逗号
                         let originalS = stripPosTag(s);
-                        let wordsPart = originalS.replace(/[（(][^）)]*[）)]/g, '').replace(/^\[[^\]]+\]/g, '').trim();
+                        let wordsPart = originalS.replace(/[（(][^）)]*[）)]/g, '').replace(/\[[^\]]+\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').trim();
                         const wordsInMeaning = wordsPart.split(/[，,、]/).map(w => w.trim()).filter(w => w);
                         const cleanWords = wordsInMeaning.map(w => cleanText(w));
                         if (cleanWords.includes(cleanAns)) {
@@ -4861,7 +4861,7 @@
                         meanings.push(bracketMatch[1] || bracketMatch[2]);
                     }
                     
-                    const cleaned = s.replace(/[（(][^）)]*[）)]/g, '').trim();
+                    const cleaned = s.replace(/[（(][^）)]*[）)]/g, '').replace(/\[[^\]]+\]/g, '').replace(/《([^》]+)》/g, '$1').replace(/<([^>]+)>/g, '').trim();
                     if (cleaned) {
                         meanings.push(cleaned);
                     }
