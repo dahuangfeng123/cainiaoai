@@ -3838,7 +3838,15 @@
                     let base = new Date(log.t);
                     base.setHours(0, 0, 0, 0);
                     base.setDate(base.getDate() + PERIOD[log.c]);
-                    log.next = base.getTime();
+                    let nextTs = base.getTime();
+                    // 计算出的下次复习时间如果已过期或就是今天，至少推迟到明天
+                    let tomorrow = new Date();
+                    tomorrow.setHours(0, 0, 0, 0);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    if (nextTs < tomorrow.getTime()) {
+                        nextTs = tomorrow.getTime();
+                    }
+                    log.next = nextTs;
                 }
             });
             if (isTaskReview) {
@@ -4870,7 +4878,10 @@
                 let row = dailyLoad[d];
                 let tc = row.total <= 30 ? '#34a853' : row.total <= 60 ? '#fbbc04' : '#ea4335';
                 let lrMin = Math.round(row.total * secPerWord / 60 * 10) / 10;
-                let exMin = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
+                // 考试时间：工作日题数减半
+                let isWeekendRow = (d % 7 === 5 || d % 7 === 6);
+                let dayExamCount = isWeekendRow ? examWordCount : Math.max(10, Math.ceil(examWordCount * 0.5));
+                let exMin = Math.round(dayExamCount * examSecPerWord / 60 * 10) / 10;
                 let totMin = Math.round((lrMin + exMin)*10)/10;
                 html += `<tr>`;
                 html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">第${row.day}天</td>`;
@@ -4955,6 +4966,17 @@
 
             // 未来7天复习量预测（基于真实log数据）
             let futureDays = [];
+            // 先收集所有已过期但未完成的单词（积压的）
+            let overdueRounds = {};
+            for (let idx of learn) {
+                let l = log[idx];
+                if (!l || !l.next) continue;
+                if (done.includes(idx) || l.c >= PERIOD_arr.length || skilled.includes(idx)) continue;
+                if (l.next <= todayEndTs) {
+                    // 已过期，计入积压
+                    overdueRounds[l.c] = (overdueRounds[l.c] || 0) + 1;
+                }
+            }
             for (let i = 0; i < 7; i++) {
                 let d = new Date();
                 d.setDate(d.getDate() + i + 1);
@@ -4963,6 +4985,13 @@
                 let dayEndTs = dayStartTs + 86400000;
                 let reviewCount = 0;
                 let roundDist = {}; // 按轮次统计
+                // 第1天（明天）包含所有积压单词
+                if (i === 0) {
+                    for (let r in overdueRounds) {
+                        roundDist[r] = (roundDist[r] || 0) + overdueRounds[r];
+                        reviewCount += overdueRounds[r];
+                    }
+                }
                 for (let idx of learn) {
                     let l = log[idx];
                     if (!l || !l.next) continue;
@@ -5628,10 +5657,15 @@
                 return;
             }
             
+            // 工作日题目数量减半，周末全量
+            let dayOfWeek = new Date().getDay(); // 0=周日 6=周六
+            let isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            let examCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * 0.5));
+            
             if (mode === 0) {
                 // 综合考试模式：按 3:3:4 比例生成题目
-                let totalCount = Math.min(ec.examCount, pool.length);
-                console.log('[考试] 综合模式, 配置题数:', ec.examCount, '可用池:', pool.length, '实际题数:', totalCount);
+                let totalCount = Math.min(examCount, pool.length);
+                console.log('[考试] 综合模式, 配置题数:', ec.examCount, (isWeekend ? '周末' : '工作日') + '实际题数:', examCount, '可用池:', pool.length, '实际题数:', totalCount);
                 let mode1Count = Math.round(totalCount * 0.3); // 看词写义 30%
                 let mode2Count = Math.round(totalCount * 0.3); // 看义写词 30%
                 let mode3Count = totalCount - mode1Count - mode2Count; // 听写单词 40%
@@ -5655,8 +5689,8 @@
                 examWords = examWords.sort(() => Math.random() - 0.5);
             } else {
                 let shuffled = pool.sort(() => Math.random() - 0.5);
-                examWords = shuffled.slice(0, Math.min(ec.examCount, shuffled.length));
-                console.log('[考试] 单模式, mode:', mode, '配置题数:', ec.examCount, '可用池:', pool.length, '实际题数:', examWords.length);
+                examWords = shuffled.slice(0, Math.min(examCount, shuffled.length));
+                console.log('[考试] 单模式, mode:', mode, '配置题数:', ec.examCount, (isWeekend ? '周末' : '工作日') + '实际题数:', examCount, '可用池:', pool.length, '实际题数:', examWords.length);
             }
             
             examIndex = 0;
