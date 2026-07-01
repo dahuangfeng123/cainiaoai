@@ -3983,7 +3983,7 @@
             let today = new Date();
             today.setHours(0, 0, 0, 0);
             let ts = today.getTime();
-            let countWait = (usr) => usr.learn.filter(x => !usr.done.includes(x) && !(usr.skilled && usr.skilled.includes(x)) && usr.log[x] && usr.log[x].next && usr.log[x].next <= ts + 86400000).length;
+            let countWait = (usr) => usr.learn.filter(x => !usr.done.includes(x) && !(usr.skilled && usr.skilled.includes(x)) && usr.log[x] && usr.log[x].next && usr.log[x].next < ts + 86400000).length;
             document.getElementById("a-total").innerText = a.learn.length;
             document.getElementById("a-wait").innerText = countWait(a);
             document.getElementById("a-done").innerText = a.done.length;
@@ -4272,7 +4272,7 @@
                 if (!u.log[i] || !u.log[i].next) return;
                 if (!words[i]) return;
                 let nt = u.log[i].next;
-                if (nt <= ts + 86400000) {
+                if (nt < ts + 86400000) {
                     tasks.push({ idx: i, word: words[i], nextTime: nt });
                 }
             });
@@ -4293,7 +4293,7 @@
                 if (u.skilled && u.skilled.includes(i)) return;
                 if (!u.log[i] || !u.log[i].next) return;
                 if (!words[i]) return;
-                if (u.log[i].next <= ts + 86400000) count++;
+                if (u.log[i].next < ts + 86400000) count++;
             });
             return count;
         }
@@ -4968,7 +4968,7 @@
                 let l = log[idx];
                 if (!l || !l.next) continue;
                 if (done.includes(idx) || l.c >= PERIOD_arr.length || skilled.includes(idx)) continue;
-                if (l.next <= todayEndTs) {
+                if (l.next < todayEndTs) {
                     dueToday++;
                     let round = l.c;
                     dueTodayByRound[round] = (dueTodayByRound[round] || 0) + 1;
@@ -5001,7 +5001,7 @@
                 let l = log[idx];
                 if (!l || !l.next) continue;
                 if (done.includes(idx) || l.c >= PERIOD_arr.length || skilled.includes(idx)) continue;
-                if (l.next <= todayEndTs) {
+                if (l.next < todayEndTs) {
                     // 已过期，计入积压
                     overdueRounds[l.c] = (overdueRounds[l.c] || 0) + 1;
                 }
