@@ -6707,6 +6707,14 @@
             document.getElementById("translate-toggle").checked = !!u.translate;
             renderMineNav();
             applyInlineThemeOverrides();
+            // 同步学习规划计算器：当前学生和学习目标
+            let planUserSelect = document.getElementById('plan-user');
+            if (planUserSelect) {
+                planUserSelect.value = user;
+                let tc = myTaskConfig();
+                let learnInput = document.getElementById('plan-learn-per-day');
+                if (learnInput) learnInput.value = tc.learnTarget;
+            }
         }
 
         function renderMineNav() {
