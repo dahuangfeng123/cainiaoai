@@ -3290,6 +3290,7 @@
         let transCache = {};
         let learnModalStack = []; // 弹窗栈，支持叠加显示
         let learnModalZIndex = 1000; // 弹窗z-index起始值
+        let learnModalIdSeq = 0; // 弹窗唯一ID序列
 
         function openLearnModal(idx) {
             let w = getWords()[idx];
@@ -3300,9 +3301,10 @@
             modal.innerHTML = tpl.innerHTML;
             modal.style.display = 'flex';
             modal.style.zIndex = ++learnModalZIndex;
-            // 存储当前单词idx
+            // 存储当前单词idx和唯一modalId
             modal.dataset.idx = idx;
             modal.dataset.word = w.word;
+            modal.dataset.modalId = ++learnModalIdSeq;
             document.body.appendChild(modal);
 
             // 填充数据
@@ -3441,6 +3443,8 @@
                 modal.dataset.audioUrl = audioUrl;
             }
             let word = data[0].word.toLowerCase();
+            // 为每个弹窗生成唯一transId前缀，避免多弹窗id冲突
+            let transPrefix = 'trans-' + modal.dataset.modalId + '-';
             let html = "";
             let transIdx = 0;
             let transQueue = [];
@@ -3452,8 +3456,8 @@
                     html += `<div style="margin-bottom:6px;padding-left:8px;">`;
                     html += `<div>${i + 1}. ${d.definition}`;
                     if (u.translate) {
-                        html += `<span id="trans-${word}-${transIdx}" style="color:#999;font-size:12px;margin-left:4px;"></span>`;
-                        transQueue.push({ text: d.definition, idx: transIdx, word: word });
+                        html += `<span id="${transPrefix}${transIdx}" style="color:#999;font-size:12px;margin-left:4px;"></span>`;
+                        transQueue.push({ text: d.definition, idx: transIdx });
                     }
                     html += `</div>`;
                     transIdx++;
@@ -3467,17 +3471,18 @@
             });
             modal.querySelector('.lm-detail').innerHTML = html || '<span style="color:#ccc;">暂无在线例句</span>';
             if (u.translate && transQueue.length > 0) {
-                transQueue.forEach(item => translateDefForModal(item.text, item.idx, item.word, modal));
+                transQueue.forEach(item => translateDefForModal(item.text, item.idx, modal));
             }
         }
 
         // 为指定弹窗翻译释义
-        function translateDefForModal(text, idx, word, modal) {
+        function translateDefForModal(text, idx, modal) {
             let u = safeUser(getUser());
             if (!u.translate) return;
             let cacheKey = text;
+            let transPrefix = 'trans-' + modal.dataset.modalId + '-';
             if (transCache[cacheKey]) {
-                let el = document.getElementById(`trans-${word}-${idx}`);
+                let el = modal.querySelector('#' + CSS.escape(transPrefix + idx));
                 if (el) el.innerText = transCache[cacheKey];
                 return;
             }
@@ -3492,8 +3497,10 @@
                 let t = d.data && d.data.translations && d.data.translations[0] && d.data.translations[0].translatedText;
                 if (t) {
                     transCache[cacheKey] = t;
-                    let el = document.getElementById(`trans-${word}-${idx}`);
-                    if (el) el.innerText = t;
+                    if (modal.isConnected) {
+                        let el = modal.querySelector('#' + CSS.escape(transPrefix + idx));
+                        if (el) el.innerText = t;
+                    }
                 }
             })
             .catch(() => {});
@@ -3557,52 +3564,6 @@
                 return;
             }
             openLearnModal(idx);
-        }
-
-        let transQueue = [];
-        let transRunning = false;
-
-        function translateDef(text, idx) {
-            transQueue.push({ text, idx });
-            processTransQueue();
-        }
-
-        async function processTransQueue() {
-            if (transRunning || transQueue.length === 0) return;
-            transRunning = true;
-            let { text, idx } = transQueue.shift();
-            let el = document.getElementById("trans-" + idx);
-            if (transCache[text]) {
-                if (el) el.innerText = transCache[text];
-                transRunning = false;
-                processTransQueue();
-                return;
-            }
-            if (!el) {
-                transRunning = false;
-                processTransQueue();
-                return;
-            }
-            el.innerText = "（翻译中…）";
-            try {
-                let url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=" + encodeURIComponent(text);
-                let res = await fetch(url);
-                let data = await res.json();
-                let zh = "";
-                if (data && data[0]) {
-                    zh = data[0].map(item => item[0] || "").join("");
-                }
-                if (zh) {
-                    transCache[text] = "（" + zh + "）";
-                    el.innerText = "（" + zh + "）";
-                } else {
-                    el.innerText = "";
-                }
-            } catch {
-                el.innerText = "（翻译失败）";
-            }
-            transRunning = false;
-            processTransQueue();
         }
 
         function highlightWord(text, word) {
