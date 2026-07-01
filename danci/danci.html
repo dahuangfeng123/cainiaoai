@@ -1725,7 +1725,7 @@
         <div class="page" id="page-exam">
             <div class="card" id="exam-setup">
                 <h2>📝 单词考试</h2>
-                <p style="color:#666;font-size:13px;margin-bottom:16px;">从已学习和已复习的单词中随机抽取100个组成试卷，完成后自动打分</p>
+                <p style="color:#666;font-size:13px;margin-bottom:16px;">从已学习和已复习的单词中随机抽取<span id="exam-count-label">100</span>个组成试卷，完成后自动打分（工作日50%，周末100%）</p>
                 <div style="margin-bottom:16px;color:#666;font-size:13px;">
                     当前考试模式：<span id="exam-mode-label" class="theme-accent" style="font-weight:bold;color:#ff6f91;">看词写义</span>（使用顶部全局模式）
                 </div>
@@ -4205,6 +4205,15 @@
                 }
                 if (isToday || isPast) {
                     html += `<div style="margin-bottom:12px;"><button class="btn btn-blue" onclick="startReviewSession()">开始复习（${tasks.length}个单词，三轮模式）</button></div>`;
+                    // 显示实际到期数与上限对比
+                    let allDueCount = getAllDueCount();
+                    let limit = myTaskConfig().reviewLimit;
+                    if (allDueCount > limit) {
+                        let postponed = allDueCount - limit;
+                        html += `<div style="font-size:12px;color:#e65100;margin-bottom:8px;">📋 实际到期 ${allDueCount} 个，每日上限 ${limit} 个，${postponed} 个顺延至次日</div>`;
+                    } else if (allDueCount > 0) {
+                        html += `<div style="font-size:12px;color:#666;margin-bottom:8px;">📋 今日到期 ${allDueCount} 个，未超出每日上限</div>`;
+                    }
                 }
                 tasks.forEach(t => {
                     let displayMode = mode === 0 ? 1 : mode; // 综合考试模式使用看词写义
@@ -4269,6 +4278,24 @@
             });
             tasks.sort((a, b) => a.nextTime - b.nextTime);
             return tasks.slice(0, myTaskConfig().reviewLimit);
+        }
+
+        // 获取实际到期总数（不受reviewLimit限制）
+        function getAllDueCount() {
+            let u = safeUser(getUser());
+            let words = getWords();
+            let today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let ts = today.getTime();
+            let count = 0;
+            u.learn.forEach(i => {
+                if (u.done.includes(i)) return;
+                if (u.skilled && u.skilled.includes(i)) return;
+                if (!u.log[i] || !u.log[i].next) return;
+                if (!words[i]) return;
+                if (u.log[i].next <= ts + 86400000) count++;
+            });
+            return count;
         }
 
         function getTasksByDate(date) {
@@ -5532,6 +5559,12 @@
             let pool = getExamPool();
             document.getElementById("exam-pool-count").innerText = pool.length;
             document.getElementById("exam-mode-label").innerText = MODE_LABELS[mode];
+            // 根据工作日/周末动态显示今日考试题数
+            let ec = myExamConfig();
+            let dayOfWeek = new Date().getDay();
+            let isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            let todayExamCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * 0.5));
+            document.getElementById("exam-count-label").innerText = todayExamCount;
             let btn = document.getElementById("exam-start-btn");
             if (pool.length < 1) {
                 btn.disabled = true;
