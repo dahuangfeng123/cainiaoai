@@ -2663,6 +2663,7 @@
             learnTarget: 10,
             learnReward: 30,
             reviewReward: 30,
+            reviewLimit: 30,
             examCompleteReward: 20,
             examPerfectReward: 100,
             examClearReward: 50
@@ -3393,8 +3394,10 @@
             let today = todayKey();
             if (!u.learn.includes(idx)) {
                 u.learn.push(idx);
-                let nextTs = nextDate(now, 1);
-                u.log[idx] = { t: now, c: 1, next: nextTs };
+                let baseDate = new Date(now);
+                baseDate.setHours(0, 0, 0, 0);
+                baseDate.setDate(baseDate.getDate() + PERIOD[1]);
+                u.log[idx] = { t: now, c: 1, next: baseDate.getTime() };
                 setUser(u);
                 recordDaily('learn');
                 u = safeUser(getUser());
@@ -3821,23 +3824,24 @@
             });
             // 所有原始单词都通过三轮，就算完整完成（跳过的单词最终通过也算）
             let allCompleted = reviewed.length >= reviewTotalCount;
+            // 任务复习和自由复习都更新复习进度
+            let u = safeUser(getUser());
+            reviewed.forEach(idx => {
+                let i = parseInt(idx);
+                let log = u.log[i];
+                if (!log) return;
+                log.c += 1;
+                if (log.c >= PERIOD.length) {
+                    if (!u.done.includes(i)) u.done.push(i);
+                    log.next = null;
+                } else {
+                    let base = new Date(log.t);
+                    base.setHours(0, 0, 0, 0);
+                    base.setDate(base.getDate() + PERIOD[log.c]);
+                    log.next = base.getTime();
+                }
+            });
             if (isTaskReview) {
-                let u = safeUser(getUser());
-                reviewed.forEach(idx => {
-                    let i = parseInt(idx);
-                    let log = u.log[i];
-                    if (!log) return;
-                    log.c += 1;
-                    let interval = PERIOD[log.c] - PERIOD[log.c - 1];
-                    if (log.c >= PERIOD.length) {
-                        if (!u.done.includes(i)) u.done.push(i);
-                        log.next = null;
-                    } else {
-                        let d = new Date();
-                        d.setDate(d.getDate() + interval);
-                        log.next = d.getTime();
-                    }
-                });
                 if (reviewPendingStars > 0) {
                     u.stars = (u.stars || 0) + reviewPendingStars;
                     logStarChange(user, reviewPendingStars, '复习连击星星');
@@ -3846,6 +3850,8 @@
                 setUser(u);
                 // 全部完成就奖励星星
                 if (allCompleted) addStars(myTaskConfig().reviewReward, '复习任务完成！');
+            } else {
+                setUser(u);
             }
             isInReview = false;
             let wasTaskReview = isTaskReview;
@@ -4243,23 +4249,18 @@
             today.setHours(0, 0, 0, 0);
             let ts = today.getTime();
             let tasks = [];
-            let needSave = false;
             u.learn.forEach(i => {
                 if (u.done.includes(i)) return;
                 if (u.skilled && u.skilled.includes(i)) return;
                 if (!u.log[i] || !u.log[i].next) return;
-                if (!words[i]) return; // 检查单词是否存在
+                if (!words[i]) return;
                 let nt = u.log[i].next;
                 if (nt <= ts + 86400000) {
                     tasks.push({ idx: i, word: words[i], nextTime: nt });
                 }
-                if (nt < ts) {
-                    u.log[i].next = ts;
-                    needSave = true;
-                }
             });
-            if (needSave) setUser(u);
-            return tasks;
+            tasks.sort((a, b) => a.nextTime - b.nextTime);
+            return tasks.slice(0, myTaskConfig().reviewLimit);
         }
 
         function getTasksByDate(date) {
@@ -4756,7 +4757,10 @@
             let totalDays = parseInt(document.getElementById('plan-days').value) || 60;
             // 艾宾浩斯复习周期：学习后第1/2/4/7/15/30天需复习
             let intervals = [1, 2, 4, 7, 15, 30];
-            let examSecPerWord = 15; // 考试每题15秒（100题=1500秒）
+            // 考试配置：从exam_config读取题数和每题时间
+            let ec = getExamConfig()[document.getElementById('plan-user')?.value || user] || getExamConfig()[user];
+            let examWordCount = ec.examCount || 100;
+            let examSecPerWord = Math.round((ec.questionTime || 60) / 3); // 三种题型平均每题时间
             let dailyLoad = [];
             let peakReview = 0, peakDay = 0, peakTotal = 0;
             let steadyReview = 0, steadyCount = 0;
@@ -4787,8 +4791,7 @@
             // 时间预估
             let reviewMinutes = Math.round(steadyTotal * secPerWord / 60 * 10) / 10;
             let peakMinutes = Math.round(peakTotal * secPerWord / 60 * 10) / 10;
-            // 考试时间：复习词数 × 15秒/题
-            let examWordCount = steadyReview;
+            // 考试时间：配置题数 × 每题时间
             let examMinutes = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
 
             let totalColor = steadyTotal <= 30 ? '#34a853' : steadyTotal <= 60 ? '#fbbc04' : '#ea4335';
@@ -4867,7 +4870,7 @@
                 let row = dailyLoad[d];
                 let tc = row.total <= 30 ? '#34a853' : row.total <= 60 ? '#fbbc04' : '#ea4335';
                 let lrMin = Math.round(row.total * secPerWord / 60 * 10) / 10;
-                let exMin = Math.round(row.review * examSecPerWord / 60 * 10) / 10;
+                let exMin = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
                 let totMin = Math.round((lrMin + exMin)*10)/10;
                 html += `<tr>`;
                 html += `<td style="padding:4px 6px;border:1px solid #eee;text-align:center;">第${row.day}天</td>`;
@@ -4888,7 +4891,10 @@
         function calcRealPlan() {
             let planUser = document.getElementById('plan-user').value;
             let secPerWord = parseInt(document.getElementById('plan-seconds-per-word').value) || 15;
-            let examSecPerWord = 15; // 考试每题15秒
+            // 考试配置：从exam_config读取题数和每题时间
+            let ec = getExamConfig()[planUser] || { examCount: 100, questionTime: 60 };
+            let examWordCount = ec.examCount || 100;
+            let examSecPerWord = Math.round((ec.questionTime || 60) / 3);
             let u = safeUser(JSON.parse(localStorage.getItem('wuser' + planUser) || 'null'));
             let learn = u.learn || [];
             let log = u.log || {};
@@ -4977,7 +4983,7 @@
             // 时间预估
             let todayTotal = dueToday;
             let todayLearnMin = Math.round(todayTotal * secPerWord / 60 * 10) / 10;
-            let todayExamMin = Math.round(todayTotal * examSecPerWord / 60 * 10) / 10;
+            let todayExamMin = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
             let todayAllMin = Math.round((todayLearnMin + todayExamMin)*10)/10;
 
             let html = '';

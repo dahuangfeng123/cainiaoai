@@ -220,6 +220,7 @@ const DEFAULT_TASK_CONFIG = {
     learnTarget: 10,
     learnReward: 30,
     reviewReward: 30,
+    reviewLimit: 30,
     examCompleteReward: 20,
     examPerfectReward: 100,
     examClearReward: 50
@@ -398,6 +399,10 @@ function renderStudent(who) {
                 <div>
                     <label style="font-size:12px;color:#888;">错题清零奖励（⭐）</label>
                     <input type="number" id="tc-examClearReward-${who}" value="${tc.examClearReward}" min="0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">每日复习上限（个）</label>
+                    <input type="number" id="tc-reviewLimit-${who}" value="${tc.reviewLimit}" min="5" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
                 </div>
             </div>
             <div class="btn-group">
@@ -1121,6 +1126,7 @@ function saveTaskConfig(who) {
         learnTarget: parseInt(document.getElementById('tc-learnTarget-' + who).value) || DEFAULT_TASK_CONFIG.learnTarget,
         learnReward: parseInt(document.getElementById('tc-learnReward-' + who).value) || DEFAULT_TASK_CONFIG.learnReward,
         reviewReward: parseInt(document.getElementById('tc-reviewReward-' + who).value) || DEFAULT_TASK_CONFIG.reviewReward,
+        reviewLimit: parseInt(document.getElementById('tc-reviewLimit-' + who).value) || DEFAULT_TASK_CONFIG.reviewLimit,
         examCompleteReward: parseInt(document.getElementById('tc-examCompleteReward-' + who).value) || DEFAULT_TASK_CONFIG.examCompleteReward,
         examPerfectReward: parseInt(document.getElementById('tc-examPerfectReward-' + who).value) || DEFAULT_TASK_CONFIG.examPerfectReward,
         examClearReward: parseInt(document.getElementById('tc-examClearReward-' + who).value) || DEFAULT_TASK_CONFIG.examClearReward
