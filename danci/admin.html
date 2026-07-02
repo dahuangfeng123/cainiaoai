@@ -221,6 +221,7 @@ const DEFAULT_TASK_CONFIG = {
     learnReward: 30,
     reviewReward: 30,
     reviewLimit: 30,
+    examWeekdayRatio: 0.5,
     examCompleteReward: 20,
     examPerfectReward: 100,
     examClearReward: 50
@@ -403,6 +404,10 @@ function renderStudent(who) {
                 <div>
                     <label style="font-size:12px;color:#888;">每日复习上限（个）</label>
                     <input type="number" id="tc-reviewLimit-${who}" value="${tc.reviewLimit}" min="5" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#888;">工作日考试题数比例（%）</label>
+                    <input type="number" id="tc-examWeekdayRatio-${who}" value="${Math.round((tc.examWeekdayRatio || 0.5) * 100)}" min="10" max="100" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin-top:2px;">
                 </div>
             </div>
             <div class="btn-group">
@@ -1127,6 +1132,7 @@ function saveTaskConfig(who) {
         learnReward: parseInt(document.getElementById('tc-learnReward-' + who).value) || DEFAULT_TASK_CONFIG.learnReward,
         reviewReward: parseInt(document.getElementById('tc-reviewReward-' + who).value) || DEFAULT_TASK_CONFIG.reviewReward,
         reviewLimit: parseInt(document.getElementById('tc-reviewLimit-' + who).value) || DEFAULT_TASK_CONFIG.reviewLimit,
+        examWeekdayRatio: parseInt(document.getElementById('tc-examWeekdayRatio-' + who).value) / 100 || DEFAULT_TASK_CONFIG.examWeekdayRatio,
         examCompleteReward: parseInt(document.getElementById('tc-examCompleteReward-' + who).value) || DEFAULT_TASK_CONFIG.examCompleteReward,
         examPerfectReward: parseInt(document.getElementById('tc-examPerfectReward-' + who).value) || DEFAULT_TASK_CONFIG.examPerfectReward,
         examClearReward: parseInt(document.getElementById('tc-examClearReward-' + who).value) || DEFAULT_TASK_CONFIG.examClearReward

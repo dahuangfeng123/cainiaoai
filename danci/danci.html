@@ -1755,7 +1755,7 @@
         <div class="page" id="page-exam">
             <div class="card" id="exam-setup">
                 <h2>📝 单词考试</h2>
-                <p style="color:#666;font-size:13px;margin-bottom:16px;">从已学习和已复习的单词中随机抽取<span id="exam-count-label">100</span>个组成试卷，完成后自动打分（工作日50%，周末100%）</p>
+                <p style="color:#666;font-size:13px;margin-bottom:16px;">从已学习和已复习的单词中随机抽取<span id="exam-count-label">100</span>个组成试卷，完成后自动打分（工作日<span id="exam-weekday-ratio-label">50%</span>，周末100%）</p>
                 <div style="margin-bottom:16px;color:#666;font-size:13px;">
                     当前考试模式：<span id="exam-mode-label" class="theme-accent" style="font-weight:bold;color:#ff6f91;">看词写义</span>（使用顶部全局模式）
                 </div>
@@ -1945,6 +1945,7 @@
     <!-- 学习展示弹窗（模板，由JS动态克隆创建） -->
     <div id="learn-modal-tpl" style="display:none;">
         <div class="modal-body" style="max-width:900px;display:flex;flex-direction:row;height:70vh;padding:0;">
+            <span class="modal-close" onclick="closeAllLearnModals(this)" style="right:36px;">⊠</span>
             <span class="modal-close" onclick="closeLearnModal(this)">✕</span>
             <!-- 左侧2/3：单词详情 -->
             <div style="flex:3;display:flex;flex-direction:column;border-right:1px solid #eee;">
@@ -2664,6 +2665,7 @@
             learnReward: 30,
             reviewReward: 30,
             reviewLimit: 30,
+            examWeekdayRatio: 0.5,
             examCompleteReward: 20,
             examPerfectReward: 100,
             examClearReward: 50
@@ -3371,6 +3373,21 @@
                 learnIdx = null;
                 learnAudioUrl = "";
             }
+        }
+
+        // 关闭除底层外的所有弹窗
+        function closeAllLearnModals(btn) {
+            if (learnModalStack.length <= 1) return;
+            // 保留第一个（最底层），移除其余所有
+            for (let i = learnModalStack.length - 1; i >= 1; i--) {
+                let modal = learnModalStack[i];
+                modal.remove();
+            }
+            learnModalStack.splice(1);
+            // 恢复底层弹窗的learnIdx
+            let bottom = learnModalStack[0];
+            learnIdx = parseInt(bottom.dataset.idx);
+            learnAudioUrl = "";
         }
 
         // 获取弹窗所属的word
@@ -4909,7 +4926,8 @@
                 let actualDate = new Date();
                 actualDate.setDate(actualDate.getDate() + d);
                 let isWeekendRow = actualDate.getDay() === 0 || actualDate.getDay() === 6;
-                let dayExamCount = isWeekendRow ? examWordCount : Math.max(10, Math.ceil(examWordCount * 0.5));
+                let weekdayRatio = myTaskConfig().examWeekdayRatio || 0.5;
+                let dayExamCount = isWeekendRow ? examWordCount : Math.max(10, Math.ceil(examWordCount * weekdayRatio));
                 let exMin = Math.round(dayExamCount * examSecPerWord / 60 * 10) / 10;
                 let totMin = Math.round((lrMin + exMin)*10)/10;
                 html += `<tr>`;
@@ -4935,6 +4953,9 @@
             let ec = getExamConfig()[planUser] || { examCount: 100, questionTime: 60 };
             let examWordCount = ec.examCount || 100;
             let examSecPerWord = Math.round((ec.questionTime || 60) / 3);
+            // 获取任务配置中的工作日比例
+            let tc = getTaskConfig()[planUser] || { examWeekdayRatio: 0.5 };
+            let weekdayRatio = tc.examWeekdayRatio || 0.5;
             let u = safeUser(JSON.parse(localStorage.getItem('wuser' + planUser) || 'null'));
             let learn = u.learn || [];
             let log = u.log || {};
@@ -5041,7 +5062,11 @@
             // 时间预估
             let todayTotal = dueToday;
             let todayLearnMin = Math.round(todayTotal * secPerWord / 60 * 10) / 10;
-            let todayExamMin = Math.round(examWordCount * examSecPerWord / 60 * 10) / 10;
+            // 根据工作日/周末计算考试时间
+            let dayOfWeek = new Date().getDay();
+            let isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            let todayExamCount = isWeekend ? examWordCount : Math.max(10, Math.ceil(examWordCount * weekdayRatio));
+            let todayExamMin = Math.round(todayExamCount * examSecPerWord / 60 * 10) / 10;
             let todayAllMin = Math.round((todayLearnMin + todayExamMin)*10)/10;
 
             let html = '';
@@ -5563,8 +5588,10 @@
             let ec = myExamConfig();
             let dayOfWeek = new Date().getDay();
             let isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            let todayExamCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * 0.5));
+            let weekdayRatio = myTaskConfig().examWeekdayRatio || 0.5;
+            let todayExamCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * weekdayRatio));
             document.getElementById("exam-count-label").innerText = todayExamCount;
+            document.getElementById("exam-weekday-ratio-label").innerText = Math.round(weekdayRatio * 100) + '%';
             let btn = document.getElementById("exam-start-btn");
             if (pool.length < 1) {
                 btn.disabled = true;
@@ -5699,10 +5726,11 @@
                 return;
             }
             
-            // 工作日题目数量减半，周末全量
+            // 工作日题目数量按比例，周末全量
             let dayOfWeek = new Date().getDay(); // 0=周日 6=周六
             let isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            let examCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * 0.5));
+            let weekdayRatio = myTaskConfig().examWeekdayRatio || 0.5;
+            let examCount = isWeekend ? ec.examCount : Math.max(10, Math.ceil(ec.examCount * weekdayRatio));
             
             if (mode === 0) {
                 // 综合考试模式：按 3:3:4 比例生成题目
